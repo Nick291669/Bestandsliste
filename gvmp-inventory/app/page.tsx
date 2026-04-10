@@ -68,9 +68,19 @@ type DealerCalcModal = {
   amount: string
 } | null
 
+
+type StorageStatusGroup = {
+  id: string
+  name: string
+  vehicleIds: string[]
+}
+
+
+
 const ITEMS_KEY = "escocars_storage_items_db_v1"
 const VEHICLES_KEY = "escocars_storage_vehicles_db_v1"
 const DEALERS_KEY = "escocars_storage_dealers_db_v1"
+const STATUS_GROUPS_KEY = "escocars_storage_status_groups_db_v1"
 
 export default function Page() {
   const [activeTab, setActiveTab] = useState<TabKey>("storage")
@@ -157,6 +167,17 @@ export default function Page() {
 
   const [dealerCalcModal, setDealerCalcModal] = useState<DealerCalcModal>(null)
 
+const [statusGroups, setStatusGroups] = useState<StorageStatusGroup[]>([])
+
+const [showCreateStatusModal, setShowCreateStatusModal] = useState(false)
+const [statusGroupName, setStatusGroupName] = useState("")
+const [statusGroupVehicleIds, setStatusGroupVehicleIds] = useState<string[]>([])
+
+const [editStatusGroupId, setEditStatusGroupId] = useState<string | null>(null)
+const [editStatusGroupName, setEditStatusGroupName] = useState("")
+const [editStatusGroupVehicleIds, setEditStatusGroupVehicleIds] = useState<string[]>([])
+  
+
   const isCrateItemName = (name: string) => {
   const n = name.trim().toLowerCase()
   return n === "kiste" || n === "kisten"
@@ -231,6 +252,7 @@ const removeDealerExtraItem = (mode: "create" | "edit", itemId: string) => {
         const savedItems = await get<Item[]>(ITEMS_KEY)
         const savedVehicles = await get<Vehicle[]>(VEHICLES_KEY)
         const savedDealers = await get<Dealer[]>(DEALERS_KEY)
+        const savedStatusGroups = await get<StorageStatusGroup[]>(STATUS_GROUPS_KEY)
 
         if (savedItems) {
           setItems(
@@ -270,6 +292,16 @@ const removeDealerExtraItem = (mode: "create" | "edit", itemId: string) => {
     }))
   )
 }
+
+if (savedStatusGroups) {
+  setStatusGroups(
+    savedStatusGroups.map((group) => ({
+      ...group,
+      vehicleIds: group.vehicleIds ?? [],
+    }))
+  )
+}
+
       } catch (error) {
         console.error("Fehler beim Laden:", error)
       } finally {
@@ -300,6 +332,13 @@ const removeDealerExtraItem = (mode: "create" | "edit", itemId: string) => {
       console.error("Fehler beim Speichern der Dealer:", error)
     })
   }, [dealers, isLoaded])
+
+  useEffect(() => {
+  if (!isLoaded) return
+  set(STATUS_GROUPS_KEY, statusGroups).catch((error) => {
+    console.error("Fehler beim Speichern der Status Gruppen:", error)
+  })
+}, [statusGroups, isLoaded])
 
   const activeDealers = useMemo(
     () => dealers.filter((dealer) => dealer.isActive),
@@ -824,11 +863,18 @@ const removeDealerExtraItem = (mode: "create" | "edit", itemId: string) => {
   }
 
   const deleteVehicle = (vehicleId: string) => {
-    setVehicles((prev) => prev.filter((vehicle) => vehicle.id !== vehicleId))
-    if (selectedVehicleId === vehicleId) setSelectedVehicleId(null)
-    if (assignVehicleId === vehicleId) setAssignVehicleId("")
-    setTradeVehicleIds((prev) => prev.filter((id) => id !== vehicleId))
-  }
+  setVehicles((prev) => prev.filter((vehicle) => vehicle.id !== vehicleId))
+  if (selectedVehicleId === vehicleId) setSelectedVehicleId(null)
+  if (assignVehicleId === vehicleId) setAssignVehicleId("")
+  setTradeVehicleIds((prev) => prev.filter((id) => id !== vehicleId))
+
+  setStatusGroups((prev) =>
+    prev.map((group) => ({
+      ...group,
+      vehicleIds: group.vehicleIds.filter((id) => id !== vehicleId),
+    }))
+  )
+}
 
   const deleteDealer = (dealerId: string) => {
     setDealers((prev) => prev.filter((dealer) => dealer.id !== dealerId))
@@ -1314,6 +1360,123 @@ const removeDealerExtraItem = (mode: "create" | "edit", itemId: string) => {
     return parts.length > 0 ? parts.join(" · ") : null
   }
 
+
+  const toggleStatusVehicleSelection = (vehicleId: string, mode: "create" | "edit") => {
+  if (mode === "create") {
+    setStatusGroupVehicleIds((prev) =>
+      prev.includes(vehicleId) ? prev.filter((id) => id !== vehicleId) : [...prev, vehicleId]
+    )
+  } else {
+    setEditStatusGroupVehicleIds((prev) =>
+      prev.includes(vehicleId) ? prev.filter((id) => id !== vehicleId) : [...prev, vehicleId]
+    )
+  }
+}
+
+const createStatusGroup = () => {
+  if (!statusGroupName.trim() || statusGroupVehicleIds.length === 0) return
+
+  setStatusGroups((prev) => [
+    ...prev,
+    {
+      id: Date.now().toString(),
+      name: statusGroupName.trim(),
+      vehicleIds: statusGroupVehicleIds,
+    },
+  ])
+
+  setStatusGroupName("")
+  setStatusGroupVehicleIds([])
+  setShowCreateStatusModal(false)
+}
+
+const startEditStatusGroup = (group: StorageStatusGroup) => {
+  setEditStatusGroupId(group.id)
+  setEditStatusGroupName(group.name)
+  setEditStatusGroupVehicleIds(group.vehicleIds)
+}
+
+const saveEditStatusGroup = () => {
+  if (!editStatusGroupId || !editStatusGroupName.trim() || editStatusGroupVehicleIds.length === 0) return
+
+  setStatusGroups((prev) =>
+    prev.map((group) =>
+      group.id === editStatusGroupId
+        ? {
+            ...group,
+            name: editStatusGroupName.trim(),
+            vehicleIds: editStatusGroupVehicleIds,
+          }
+        : group
+    )
+  )
+
+  setEditStatusGroupId(null)
+  setEditStatusGroupName("")
+  setEditStatusGroupVehicleIds([])
+}
+
+const deleteStatusGroup = (groupId: string) => {
+  setStatusGroups((prev) => prev.filter((group) => group.id !== groupId))
+}
+
+const getStatusVehicles = (group: StorageStatusGroup) => {
+  return vehicles.filter((vehicle) => group.vehicleIds.includes(vehicle.id))
+}
+
+const clampPercent = (value: number) => {
+  if (!Number.isFinite(value)) return 0
+  return Math.max(0, Math.min(100, value))
+}
+
+const getStatusMetrics = (group: StorageStatusGroup) => {
+  const groupVehicles = getStatusVehicles(group)
+
+  const totalVehicles = groupVehicles.length
+  const usedVehicles = groupVehicles.filter((vehicle) => vehicle.inventory.length > 0).length
+
+  const totalAmount = groupVehicles.reduce(
+    (sum, vehicle) =>
+      sum +
+      vehicle.inventory.reduce((inner, entry) => inner + (entry.amount || 0), 0),
+    0
+  )
+
+  const totalKgUsed = groupVehicles.reduce((sum, vehicle) => sum + getVehicleCurrentKg(vehicle), 0)
+  const totalKgMax = groupVehicles.reduce((sum, vehicle) => sum + (vehicle.maxKg || 0), 0)
+
+  const totalSlotsUsed = groupVehicles.reduce((sum, vehicle) => sum + getVehicleUsedSlots(vehicle), 0)
+  const totalSlotsMax = groupVehicles.reduce((sum, vehicle) => sum + (vehicle.maxSlots || 0), 0)
+
+  const kgPercent = totalKgMax > 0 ? clampPercent((totalKgUsed / totalKgMax) * 100) : 0
+  const slotPercent = totalSlotsMax > 0 ? clampPercent((totalSlotsUsed / totalSlotsMax) * 100) : 0
+  const vehiclePercent = totalVehicles > 0 ? clampPercent((usedVehicles / totalVehicles) * 100) : 0
+
+  let overallPercent = 0
+  const percentParts = [kgPercent, slotPercent, vehiclePercent].filter((v) => v > 0)
+  if (percentParts.length > 0) {
+    overallPercent = clampPercent(
+      percentParts.reduce((sum, value) => sum + value, 0) / percentParts.length
+    )
+  }
+
+  return {
+    totalVehicles,
+    usedVehicles,
+    vehiclePercent,
+    totalAmount,
+    totalKgUsed,
+    totalKgMax,
+    kgPercent,
+    totalSlotsUsed,
+    totalSlotsMax,
+    slotPercent,
+    overallPercent,
+  }
+}
+
+
+
   const tabs: { key: TabKey; label: string }[] = [
     { key: "overview", label: "Übersicht" },
     { key: "storage", label: "Lager" },
@@ -1439,6 +1602,121 @@ const removeDealerExtraItem = (mode: "create" | "edit", itemId: string) => {
 
         {activeTab === "storage" && (
           <section className="rounded-[2rem] border border-white/10 bg-gradient-to-b from-[#071121]/95 to-[#050914]/95 p-6 shadow-[0_10px_40px_rgba(0,0,0,0.35)]">
+           
+           <div className="mb-8 rounded-[1.8rem] border border-white/10 bg-[#08111f]/90 p-5">
+  <div className="mb-5 flex items-center justify-between gap-4">
+    <div>
+      <h2 className="text-xl font-semibold text-white">Lager Status</h2>
+      <p className="mt-1 text-sm text-zinc-400">
+        Eigene Status-Tracker für bestimmte Fahrzeuge und Lagergruppen
+      </p>
+    </div>
+
+    <button
+      onClick={() => setShowCreateStatusModal(true)}
+      className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-300 transition hover:bg-emerald-500/20"
+    >
+      Status erstellen
+    </button>
+  </div>
+
+  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+    {statusGroups.map((group) => {
+      const metrics = getStatusMetrics(group)
+
+      return (
+        <div
+          key={group.id}
+          className="rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-5 transition hover:border-orange-500/35"
+        >
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <div>
+              <div className="text-lg font-semibold text-white">{group.name}</div>
+              <div className="mt-1 text-sm text-zinc-400">
+                {metrics.totalVehicles} Fahrzeuge zugewiesen
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => startEditStatusGroup(group)}
+                className="rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-1.5 text-xs text-blue-300"
+              >
+                Bearbeiten
+              </button>
+              <button
+                onClick={() => deleteStatusGroup(group.id)}
+                className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs text-red-300"
+              >
+                Löschen
+              </button>
+            </div>
+          </div>
+
+          <div className="mb-4">
+            <div className="mb-2 flex items-center justify-between text-sm">
+              <span className="text-zinc-400">Gesamtauslastung</span>
+              <span className="font-semibold text-white">{formatNumber(metrics.overallPercent)}%</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-white/10">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-orange-400 to-red-400 transition-all"
+                style={{ width: `${metrics.overallPercent}%` }}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+              Anzahl
+              <br />
+              <span className="text-orange-300">{formatNumber(metrics.totalAmount)}</span>
+            </div>
+
+            <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+              Fahrzeuge
+              <br />
+              <span className="text-emerald-300">
+                {formatNumber(metrics.usedVehicles)} / {formatNumber(metrics.totalVehicles)} ({formatNumber(metrics.vehiclePercent)}%)
+              </span>
+            </div>
+
+            <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+              Slots
+              <br />
+              <span className="text-blue-300">
+                {formatNumber(metrics.totalSlotsUsed)} / {formatNumber(metrics.totalSlotsMax)} ({formatNumber(metrics.slotPercent)}%)
+              </span>
+            </div>
+
+            <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+              KG
+              <br />
+              <span className="text-purple-300">
+                {formatNumber(metrics.totalKgUsed)} / {formatNumber(metrics.totalKgMax)} ({formatNumber(metrics.kgPercent)}%)
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-4 text-xs text-zinc-500">
+            Zugewiesen:{" "}
+            {getStatusVehicles(group)
+              .map((vehicle) => vehicle.name)
+              .join(", ") || "Keine Fahrzeuge"}
+          </div>
+        </div>
+      )
+    })}
+
+    {statusGroups.length === 0 && (
+      <div className="col-span-full rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-center text-zinc-400">
+        Noch keine Status-Tracker erstellt.
+      </div>
+    )}
+  </div>
+</div>
+
+           
             <div className="mb-6 flex items-center justify-between gap-4">
               <div>
                 <h1 className="text-3xl font-semibold tracking-tight">Lager</h1>
@@ -2992,6 +3270,158 @@ const removeDealerExtraItem = (mode: "create" | "edit", itemId: string) => {
     </div>
   )
 })()}
+
+
+{showCreateStatusModal && (
+  <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/75 p-4 animate-fade">
+    <div className="animate-scale w-full max-w-3xl rounded-[2rem] border border-white/10 bg-[#07111f] p-6 shadow-[0_20px_80px_rgba(0,0,0,0.45)]">
+      <div className="mb-6">
+        <div className="text-sm uppercase tracking-[0.25em] text-emerald-400">
+          Status erstellen
+        </div>
+        <h2 className="mt-2 text-2xl font-semibold">Neuen Lager Status anlegen</h2>
+      </div>
+
+      <div className="grid gap-4">
+        <input
+          value={statusGroupName}
+          onChange={(e) => setStatusGroupName(e.target.value)}
+          placeholder="Status Name, z. B. Kisten, Waffenlager, Dealer Route"
+          className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 outline-none"
+        />
+
+        <div>
+          <div className="mb-3 text-sm text-zinc-400">Fahrzeuge zuweisen</div>
+          <div className="grid gap-3 md:grid-cols-2">
+            {vehicles.map((vehicle) => {
+              const selected = statusGroupVehicleIds.includes(vehicle.id)
+
+              return (
+                <button
+                  key={vehicle.id}
+                  onClick={() => toggleStatusVehicleSelection(vehicle.id, "create")}
+                  className={`rounded-xl border px-4 py-3 text-left transition ${
+                    selected
+                      ? "border-emerald-400 bg-emerald-500/10"
+                      : "border-white/10 bg-white/[0.03] hover:border-orange-500/35"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={vehicle.image}
+                      alt={vehicle.name}
+                      className="h-12 w-12 object-contain"
+                    />
+                    <div>
+                      <div className="font-medium text-white">{vehicle.name}</div>
+                      <div className="text-sm text-zinc-400">{vehicle.plate || "n/a"}</div>
+                      <div className="text-xs text-zinc-500">{vehicle.note || "Keine Notiz"}</div>
+                    </div>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-6 flex gap-3">
+        <button
+          onClick={createStatusGroup}
+          className="rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 px-5 py-3 font-medium transition hover:scale-[1.01]"
+        >
+          Status speichern
+        </button>
+        <button
+          onClick={() => {
+            setShowCreateStatusModal(false)
+            setStatusGroupName("")
+            setStatusGroupVehicleIds([])
+          }}
+          className="rounded-xl border border-white/10 bg-white/5 px-5 py-3 transition hover:bg-white/10"
+        >
+          Abbrechen
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+
+{showCreateStatusModal && (
+  <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/75 p-4 animate-fade">
+    <div className="animate-scale w-full max-w-3xl rounded-[2rem] border border-white/10 bg-[#07111f] p-6 shadow-[0_20px_80px_rgba(0,0,0,0.45)]">
+      <div className="mb-6">
+        <div className="text-sm uppercase tracking-[0.25em] text-emerald-400">
+          Status erstellen
+        </div>
+        <h2 className="mt-2 text-2xl font-semibold">Neuen Lager Status anlegen</h2>
+      </div>
+
+      <div className="grid gap-4">
+        <input
+          value={statusGroupName}
+          onChange={(e) => setStatusGroupName(e.target.value)}
+          placeholder="Status Name, z. B. Kisten, Waffenlager, Dealer Route"
+          className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 outline-none"
+        />
+
+        <div>
+          <div className="mb-3 text-sm text-zinc-400">Fahrzeuge zuweisen</div>
+          <div className="grid gap-3 md:grid-cols-2">
+            {vehicles.map((vehicle) => {
+              const selected = statusGroupVehicleIds.includes(vehicle.id)
+
+              return (
+                <button
+                  key={vehicle.id}
+                  onClick={() => toggleStatusVehicleSelection(vehicle.id, "create")}
+                  className={`rounded-xl border px-4 py-3 text-left transition ${
+                    selected
+                      ? "border-emerald-400 bg-emerald-500/10"
+                      : "border-white/10 bg-white/[0.03] hover:border-orange-500/35"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={vehicle.image}
+                      alt={vehicle.name}
+                      className="h-12 w-12 object-contain"
+                    />
+                    <div>
+                      <div className="font-medium text-white">{vehicle.name}</div>
+                      <div className="text-sm text-zinc-400">{vehicle.plate || "n/a"}</div>
+                      <div className="text-xs text-zinc-500">{vehicle.note || "Keine Notiz"}</div>
+                    </div>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-6 flex gap-3">
+        <button
+          onClick={createStatusGroup}
+          className="rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 px-5 py-3 font-medium transition hover:scale-[1.01]"
+        >
+          Status speichern
+        </button>
+        <button
+          onClick={() => {
+            setShowCreateStatusModal(false)
+            setStatusGroupName("")
+            setStatusGroupVehicleIds([])
+          }}
+          className="rounded-xl border border-white/10 bg-white/5 px-5 py-3 transition hover:bg-white/10"
+        >
+          Abbrechen
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
 
       <style jsx global>{`
