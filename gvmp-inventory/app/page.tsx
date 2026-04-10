@@ -75,12 +75,23 @@ type StorageStatusGroup = {
   vehicleIds: string[]
 }
 
+type TradeHistoryEntry = {
+  id: string
+  type: "buy" | "sell"
+  itemId: string
+  itemName: string
+  amount: number
+  vehicleIds: string[]
+  createdAt: string
+}
+
 
 
 const ITEMS_KEY = "escocars_storage_items_db_v1"
 const VEHICLES_KEY = "escocars_storage_vehicles_db_v1"
 const DEALERS_KEY = "escocars_storage_dealers_db_v1"
 const STATUS_GROUPS_KEY = "escocars_storage_status_groups_db_v1"
+const TRADE_HISTORY_KEY = "escocars_trade_history_db_v1"
 
 export default function Page() {
   const [activeTab, setActiveTab] = useState<TabKey>("storage")
@@ -176,6 +187,8 @@ const [statusGroupVehicleIds, setStatusGroupVehicleIds] = useState<string[]>([])
 const [editStatusGroupId, setEditStatusGroupId] = useState<string | null>(null)
 const [editStatusGroupName, setEditStatusGroupName] = useState("")
 const [editStatusGroupVehicleIds, setEditStatusGroupVehicleIds] = useState<string[]>([])
+
+const [tradeHistory, setTradeHistory] = useState<TradeHistoryEntry[]>([])
   
 
   const isCrateItemName = (name: string) => {
@@ -253,6 +266,7 @@ const removeDealerExtraItem = (mode: "create" | "edit", itemId: string) => {
         const savedVehicles = await get<Vehicle[]>(VEHICLES_KEY)
         const savedDealers = await get<Dealer[]>(DEALERS_KEY)
         const savedStatusGroups = await get<StorageStatusGroup[]>(STATUS_GROUPS_KEY)
+        const savedTradeHistory = await get<TradeHistoryEntry[]>(TRADE_HISTORY_KEY)
 
         if (savedItems) {
           setItems(
@@ -300,6 +314,10 @@ if (savedStatusGroups) {
       vehicleIds: group.vehicleIds ?? [],
     }))
   )
+}
+
+if (savedTradeHistory) {
+  setTradeHistory(savedTradeHistory)
 }
 
       } catch (error) {
@@ -375,6 +393,13 @@ useEffect(() => {
   editStatusGroupId,
   dealerItemPriceModal,
 ])
+
+useEffect(() => {
+  if (!isLoaded) return
+  set(TRADE_HISTORY_KEY, tradeHistory).catch((error) => {
+    console.error("Fehler beim Speichern des Verlaufs:", error)
+  })
+}, [tradeHistory, isLoaded])
 
 
 
@@ -1049,12 +1074,13 @@ useEffect(() => {
   const exportBackup = () => {
     try {
       const backup = {
-  version: 5,
+  version: 6,
   exportedAt: new Date().toISOString(),
   items,
   vehicles,
   dealers,
   statusGroups,
+  tradeHistory,
 }
 
       const blob = new Blob([JSON.stringify(backup, null, 2)], {
@@ -1098,12 +1124,14 @@ useEffect(() => {
       setVehicles(backup.vehicles)
       setDealers(Array.isArray(backup.dealers) ? backup.dealers : [])
       setStatusGroups(Array.isArray(backup.statusGroups) ? backup.statusGroups : [])
+      setTradeHistory(Array.isArray(backup.tradeHistory) ? backup.tradeHistory : [])
       
 
       await set(ITEMS_KEY, backup.items)
       await set(VEHICLES_KEY, backup.vehicles)
       await set(DEALERS_KEY, Array.isArray(backup.dealers) ? backup.dealers : [])
       await set(STATUS_GROUPS_KEY, Array.isArray(backup.statusGroups) ? backup.statusGroups : [])
+      await set(TRADE_HISTORY_KEY, Array.isArray(backup.tradeHistory) ? backup.tradeHistory : [])
 
       alert("Backup erfolgreich importiert.")
     } catch (error) {
@@ -1346,6 +1374,10 @@ useEffect(() => {
     const result = processTradeBuy(vehicles, tradeSelectedItem, amount, tradeVehicleIds)
     setVehicles(result.updatedVehicles)
 
+    if (result.totalAdded > 0) {
+  addTradeHistoryEntry("buy", tradeSelectedItem, result.totalAdded, tradeVehicleIds)
+}
+
     setTradeResultModal({
       title: result.remaining > 0 ? "Ankauf teilweise eingelagert" : "Ankauf erfolgreich",
       message:
@@ -1379,6 +1411,10 @@ useEffect(() => {
 
     const result = processTradeSell(vehicles, tradeSelectedItem, amount, tradeVehicleIds)
     setVehicles(result.updatedVehicles)
+
+    if (result.totalRemoved > 0) {
+  addTradeHistoryEntry("sell", tradeSelectedItem, result.totalRemoved, tradeVehicleIds)
+}
 
     setTradeResultModal({
       title: result.remaining > 0 ? "Verkauf teilweise durchgeführt" : "Verkauf erfolgreich",
@@ -1541,6 +1577,113 @@ const getStatusMetrics = (group: StorageStatusGroup) => {
   }
 }
 
+const addTradeHistoryEntry = (
+  type: "buy" | "sell",
+  item: Item,
+  amount: number,
+  vehicleIds: string[]
+) => {
+  const entry: TradeHistoryEntry = {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    type,
+    itemId: item.id,
+    itemName: item.name,
+    amount,
+    vehicleIds: [...vehicleIds],
+    createdAt: new Date().toISOString(),
+  }
+
+  setTradeHistory((prev) => [entry, ...prev].slice(0, 30))
+}
+
+const undoTradeHistoryEntry = (entry: TradeHistoryEntry) => {
+  const item = items.find((i) => i.id === entry.itemId)
+  if (!item) {
+    setTradeResultModal({
+      title: "Undo fehlgeschlagen",
+      message: `Item ${entry.itemName} wurde nicht gefunden.`,
+      variant: "error",
+    })
+    return
+  }
+
+  if (entry.type === "buy") {
+    const result = processTradeSell(vehicles, item, entry.amount, entry.vehicleIds)
+    setVehicles(result.updatedVehicles)
+
+    setTradeResultModal({
+      title: result.remaining > 0 ? "Undo teilweise durchgeführt" : "Undo erfolgreich",
+      message:
+        result.remaining > 0
+          ? `${formatNumber(result.totalRemoved)}x ${item.name} wieder entfernt. Rest nicht entfernbar: ${formatNumber(result.remaining)}x`
+          : `${formatNumber(result.totalRemoved)}x ${item.name} erfolgreich rückgängig gemacht.`,
+      lines: result.lines,
+      variant: result.remaining > 0 ? "warning" : "success",
+    })
+  } else {
+    const result = processTradeBuy(vehicles, item, entry.amount, entry.vehicleIds)
+    setVehicles(result.updatedVehicles)
+
+    setTradeResultModal({
+      title: result.remaining > 0 ? "Undo teilweise durchgeführt" : "Undo erfolgreich",
+      message:
+        result.remaining > 0
+          ? `${formatNumber(result.totalAdded)}x ${item.name} zurück eingelagert. Rest: ${formatNumber(result.remaining)}x`
+          : `${formatNumber(result.totalAdded)}x ${item.name} erfolgreich zurück eingebucht.`,
+      lines: result.lines,
+      variant: result.remaining > 0 ? "warning" : "success",
+    })
+  }
+}
+
+const repeatTradeHistoryEntry = (entry: TradeHistoryEntry) => {
+  const item = items.find((i) => i.id === entry.itemId)
+  if (!item) {
+    setTradeResultModal({
+      title: "Wiederholen fehlgeschlagen",
+      message: `Item ${entry.itemName} wurde nicht gefunden.`,
+      variant: "error",
+    })
+    return
+  }
+
+  if (entry.type === "buy") {
+    const result = processTradeBuy(vehicles, item, entry.amount, entry.vehicleIds)
+    setVehicles(result.updatedVehicles)
+
+    if (result.totalAdded > 0) {
+      addTradeHistoryEntry("buy", item, result.totalAdded, entry.vehicleIds)
+    }
+
+    setTradeResultModal({
+      title: result.remaining > 0 ? "Buchung teilweise wiederholt" : "Buchung wiederholt",
+      message:
+        result.remaining > 0
+          ? `${formatNumber(result.totalAdded)}x ${item.name} eingelagert. Rest: ${formatNumber(result.remaining)}x`
+          : `${formatNumber(result.totalAdded)}x ${item.name} erneut erfolgreich eingelagert.`,
+      lines: result.lines,
+      variant: result.remaining > 0 ? "warning" : "success",
+    })
+  } else {
+    const result = processTradeSell(vehicles, item, entry.amount, entry.vehicleIds)
+    setVehicles(result.updatedVehicles)
+
+    if (result.totalRemoved > 0) {
+      addTradeHistoryEntry("sell", item, result.totalRemoved, entry.vehicleIds)
+    }
+
+    setTradeResultModal({
+      title: result.remaining > 0 ? "Buchung teilweise wiederholt" : "Buchung wiederholt",
+      message:
+        result.remaining > 0
+          ? `${formatNumber(result.totalRemoved)}x ${item.name} verkauft. Rest: ${formatNumber(result.remaining)}x`
+          : `${formatNumber(result.totalRemoved)}x ${item.name} erneut erfolgreich verkauft.`,
+      lines: result.lines,
+      variant: result.remaining > 0 ? "warning" : "success",
+    })
+  }
+}
+
 
 
   const tabs: { key: TabKey; label: string }[] = [
@@ -1559,21 +1702,27 @@ const getStatusMetrics = (group: StorageStatusGroup) => {
       <div className="fixed inset-0 -z-10 opacity-[0.06] bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] bg-[size:42px_42px]" />
 
       <main className="mx-auto max-w-7xl px-6 py-8">
-        <div className="mb-6 flex flex-wrap items-center gap-8 border-b border-white/10 pb-5 text-sm text-zinc-400">
-          {tabs.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`transition ${
-                activeTab === tab.key
-                  ? "border-b-2 border-emerald-400 pb-3 text-emerald-400"
-                  : "hover:text-white"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-5 text-sm text-zinc-400">
+  <div className="flex flex-wrap items-center gap-8">
+    {tabs.map((tab) => (
+      <button
+        key={tab.key}
+        onClick={() => setActiveTab(tab.key)}
+        className={`transition ${
+          activeTab === tab.key
+            ? "border-b-2 border-emerald-400 pb-3 text-emerald-400"
+            : "hover:text-white"
+        }`}
+      >
+        {tab.label}
+      </button>
+    ))}
+  </div>
+
+  <div className="text-xs uppercase tracking-[0.3em] text-zinc-500">
+    Made by Vito
+  </div>
+</div>
 
         <div className="mb-6 flex flex-wrap gap-3">
           <button
@@ -2187,6 +2336,83 @@ const getStatusMetrics = (group: StorageStatusGroup) => {
                 Verkauf auslagern
               </button>
             </div>
+
+            <div className="mt-8 rounded-[1.8rem] border border-white/10 bg-[#08111f]/90 p-5">
+  <div className="mb-4">
+    <h2 className="text-xl font-semibold text-white">Verlauf</h2>
+    <p className="mt-1 text-sm text-zinc-400">
+      Zuletzt gebuchte An- und Verkäufe
+    </p>
+  </div>
+
+  <div className="space-y-3">
+    {tradeHistory.map((entry) => {
+      const vehicleNames = entry.vehicleIds
+        .map((id) => vehicles.find((v) => v.id === id)?.name)
+        .filter(Boolean)
+        .join(", ")
+
+      return (
+        <div
+          key={entry.id}
+          className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"
+        >
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <span
+                  className={`rounded-lg px-2 py-1 text-xs font-medium ${
+                    entry.type === "buy"
+                      ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                      : "border border-orange-500/30 bg-orange-500/10 text-orange-300"
+                  }`}
+                >
+                  {entry.type === "buy" ? "Ankauf" : "Verkauf"}
+                </span>
+                <span className="text-sm text-white">
+                  {formatNumber(entry.amount)}x {entry.itemName}
+                </span>
+              </div>
+
+              <div className="mt-2 text-sm text-zinc-400">
+                Fahrzeuge: {vehicleNames || "n/a"}
+              </div>
+              <div className="mt-1 text-xs text-zinc-500">
+                {new Date(entry.createdAt).toLocaleString("de-DE")}
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => undoTradeHistoryEntry(entry)}
+                className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300 transition hover:bg-red-500/20"
+              >
+                Undo
+              </button>
+              <button
+                onClick={() => repeatTradeHistoryEntry(entry)}
+                className="rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-xs text-blue-300 transition hover:bg-blue-500/20"
+              >
+                Wiederholen
+              </button>
+            </div>
+          </div>
+        </div>
+      )
+    })}
+
+    {tradeHistory.length === 0 && (
+      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-center text-zinc-400">
+        Noch keine Buchungen im Verlauf vorhanden.
+      </div>
+    )}
+  </div>
+</div>
+
+
+
+
+
           </section>
         )}
 
