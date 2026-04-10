@@ -1,0 +1,21 @@
+oke Perfekt Funktiert alles jetzt pushen wir direkt noch ein großes update und zwar dealer
+
+und zwar die Kisten von denen ich die Ganze zeit rede bzw deren Preis hängt immer vom 
+Dealer ab es gibt verschiedene Dealer auf der Map und die entscheiden den Preis der Kisten also
+für wie viel ich sie verkaufen kann. Ich möchte also ein neuen Tab Dealer wo ich die aktuelle Dealer eintragen kann
+was ich brauche ist, Dealer Name, Standort, Kisten Preis in Schwarz, Stage Stufe (Gefahrenstufe (davon gibt es immer 4
+1 niedriges Risiko aber niedrigster Preis, 4 höchstet Risiko und höchster Preis)) und ich will auch ein bild hochladen können um den
+um den Standort genauer zu sehen. Die Dealer sollen genau gleich wie die Fahrzeuge angezeigt werden nur das die Daten 
+alle unterm Bild stehen und ohne Drauf klicken sichtbar sind. Was aber dazu kommt beim drauf klicken auf den Dealer 
+soll man eine Anzahl an kisten auswählen können und dann soll ausgerechnet werden wv schwarzgeld ich rausbekommen würde
+und natürlich was das an Grüngeld wäre im Preise und Übersichts Tab sollen die Preise dann so angezeigt werden. immer in Grün und schwarz ist klar
+aber es soll einmal der niedrigste möglich Preis mit dem niedrigsten Risiko in Grüner Farbe oder umrandung und einmal den höchstmöglichen Preis mit höchstem Risiko mit Roter Farbe oder umrandung sodass
+die Preise bei den Kisten nicht mehr manuell sind sonder Dealer abhängig falls du ein Name oder ähnliches brauchst das Item Kisten heisst immer Kisten oder Kiste
+also wichtig nur bei dem Item mit dem Name Kiste oder Kisten soll der preis dealer abhängi sein sonst bei keinem (erstmal) was natürlich killer wäre wenn du gleich noch die Funktion einfügt einmal im Dealer tab
+das ich dem Dealer Items zuweisen kann welche er ankauft so kann ich dort dann die Preise speichern und bei Items Erstellen oder bearbeiten tab den items dann sagen quasi das sie auf den Dealer Preis hören sollen und 
+nach dem Dealer Preis angezegit werden oder nicht und falls nicht werden sie nach dem manuell eingegeben Preis angezegit so bleibt im enddeffelt mir die
+personalisierung welches item beim dealer verkauft werden kann und so weiter
+wichtig noch zu sagen die dealer sollen wie bei den items oder autos funktionier also wenn ich einmal einen erstelle soll dieser mit den daten wie er erstellt wurde gespeichert werden
+änderbar sein aber trz gespeichert und was ich auch vergessen habe es sind zwar viele dealer da aber nicht alle aktiv also erstelle auf der dealer tab nicht nur ein Dealer erstellen button sondern auch ein button oder dropdown wo ich dann 
+die aktiven dealer auswähle bzw aktivier oder deaktiviere sodass in der liste bzw auf der dealer seite auch nur die aktive dealer angezeigt werden die anderen die nicht aktiv sind bleiben aber gepseicher sodass ich sie jederzeit falls sie ingame aktive werden
+wieder auf der seite als aktiv flaggen und somit anzeigen kann
