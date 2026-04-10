@@ -1936,7 +1936,7 @@ const repeatTradeHistoryEntry = (entry: TradeHistoryEntry) => {
               <div>
                 <h1 className="text-3xl font-semibold tracking-tight">Lager</h1>
                 <p className="mt-2 text-sm text-zinc-400">
-                  Fahrzeuge, Inhalte und Tracking im Escocars / GVMP Style
+                  Fahrzeuge, Inhalte und Tracking 
                 </p>
               </div>
               <div className="hidden items-center gap-3 md:flex">
@@ -2241,7 +2241,7 @@ const repeatTradeHistoryEntry = (entry: TradeHistoryEntry) => {
             <div className="mb-6">
               <h1 className="text-3xl font-semibold tracking-tight">Ankauf / Verkauf</h1>
               <p className="mt-2 text-sm text-zinc-400">
-                Items intelligent auf ausgewählte Fahrzeuge verteilen oder daraus verkaufen
+                Items intelligent auf ausgewählte Fahrzeuge verteilen oder daraus verkaufen. Bei Ein/Auslagerung aus/in mehrere Burritos immer Reihenfolge beachten, als erstes immer das Fahrzeug wählen was man ganz voll/leer gemacht hat dann die anderen.
               </p>
             </div>
 
