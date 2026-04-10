@@ -389,16 +389,24 @@ useEffect(() => {
   }, [selectedVehicleId, vehicles])
 
   const filteredVehicles = useMemo(() => {
-    const q = vehicleSearch.toLowerCase().trim()
-    if (!q) return vehicles
-    return vehicles.filter(
-      (v) =>
-        v.name.toLowerCase().includes(q) ||
-        v.plate.toLowerCase().includes(q) ||
-        v.location.toLowerCase().includes(q) ||
-        v.note.toLowerCase().includes(q)
+  const q = vehicleSearch.trim().toLowerCase()
+
+  if (!q) return vehicles
+
+  return vehicles.filter((v) => {
+    const name = (v.name || "").toLowerCase()
+    const plate = (v.plate || "").toLowerCase()
+    const location = (v.location || "").toLowerCase()
+    const note = (v.note || "").toLowerCase()
+
+    return (
+      name.includes(q) ||
+      plate.includes(q) ||
+      location.includes(q) ||
+      note.includes(q)
     )
-  }, [vehicles, vehicleSearch])
+  })
+}, [vehicles, vehicleSearch])
 
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -1041,12 +1049,13 @@ useEffect(() => {
   const exportBackup = () => {
     try {
       const backup = {
-        version: 4,
-        exportedAt: new Date().toISOString(),
-        items,
-        vehicles,
-        dealers,
-      }
+  version: 5,
+  exportedAt: new Date().toISOString(),
+  items,
+  vehicles,
+  dealers,
+  statusGroups,
+}
 
       const blob = new Blob([JSON.stringify(backup, null, 2)], {
         type: "application/json",
@@ -1088,10 +1097,13 @@ useEffect(() => {
       setItems(backup.items)
       setVehicles(backup.vehicles)
       setDealers(Array.isArray(backup.dealers) ? backup.dealers : [])
+      setStatusGroups(Array.isArray(backup.statusGroups) ? backup.statusGroups : [])
+      
 
       await set(ITEMS_KEY, backup.items)
       await set(VEHICLES_KEY, backup.vehicles)
       await set(DEALERS_KEY, Array.isArray(backup.dealers) ? backup.dealers : [])
+      await set(STATUS_GROUPS_KEY, Array.isArray(backup.statusGroups) ? backup.statusGroups : [])
 
       alert("Backup erfolgreich importiert.")
     } catch (error) {
@@ -1399,27 +1411,43 @@ useEffect(() => {
   }
 
 
-  const toggleStatusVehicleSelection = (vehicleId: string, mode: "create" | "edit") => {
+  const toggleStatusVehicleSelection = (
+  vehicleId: string,
+  mode: "create" | "edit"
+) => {
   if (mode === "create") {
     setStatusGroupVehicleIds((prev) =>
-      prev.includes(vehicleId) ? prev.filter((id) => id !== vehicleId) : [...prev, vehicleId]
+      prev.includes(vehicleId)
+        ? prev.filter((id) => id !== vehicleId)
+        : [...prev, vehicleId]
     )
   } else {
     setEditStatusGroupVehicleIds((prev) =>
-      prev.includes(vehicleId) ? prev.filter((id) => id !== vehicleId) : [...prev, vehicleId]
+      prev.includes(vehicleId)
+        ? prev.filter((id) => id !== vehicleId)
+        : [...prev, vehicleId]
     )
   }
 }
 
 const createStatusGroup = () => {
-  if (!statusGroupName.trim() || statusGroupVehicleIds.length === 0) return
+  const cleanName = statusGroupName.trim()
+  if (!cleanName) {
+    alert("Bitte einen Status Namen eingeben.")
+    return
+  }
+
+  if (statusGroupVehicleIds.length === 0) {
+    alert("Bitte mindestens ein Fahrzeug auswählen.")
+    return
+  }
 
   setStatusGroups((prev) => [
     ...prev,
     {
       id: Date.now().toString(),
-      name: statusGroupName.trim(),
-      vehicleIds: statusGroupVehicleIds,
+      name: cleanName,
+      vehicleIds: [...statusGroupVehicleIds],
     },
   ])
 
@@ -3329,79 +3357,177 @@ const getStatusMetrics = (group: StorageStatusGroup) => {
 
 
 {showCreateStatusModal && (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 animate-fade">
-  <div className="animate-scale w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-[2rem] border border-white/10 bg-[#07111f] p-6 shadow-[0_20px_80px_rgba(0,0,0,0.45)]">
-      <div className="mb-6">
-        <div className="text-sm uppercase tracking-[0.25em] text-emerald-400">
-          Status erstellen
+  <div className="fixed inset-0 z-[70] overflow-y-auto bg-black/75 p-4 animate-fade">
+    <div className="flex min-h-full items-center justify-center">
+      <div className="animate-scale w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-[2rem] border border-white/10 bg-[#07111f] p-6 shadow-[0_20px_80px_rgba(0,0,0,0.45)]">
+        <div className="mb-6">
+          <div className="text-sm uppercase tracking-[0.25em] text-emerald-400">
+            Status erstellen
+          </div>
+          <h2 className="mt-2 text-2xl font-semibold">Neuen Lager Status anlegen</h2>
         </div>
-        <h2 className="mt-2 text-2xl font-semibold">Neuen Lager Status anlegen</h2>
-      </div>
 
-      <div className="grid gap-4">
-        <input
-          value={statusGroupName}
-          onChange={(e) => setStatusGroupName(e.target.value)}
-          placeholder="Status Name, z. B. Kisten, Waffenlager, Dealer Route"
-          className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 outline-none"
-        />
+        <div className="grid gap-4">
+          <input
+            value={statusGroupName}
+            onChange={(e) => setStatusGroupName(e.target.value)}
+            placeholder="Status Name, z. B. Kisten, Waffenlager, Dealer Route"
+            className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 outline-none"
+          />
 
-        <div>
-          <div className="mb-3 text-sm text-zinc-400">Fahrzeuge zuweisen</div>
-          <div className="grid gap-3 md:grid-cols-2">
-            {vehicles.map((vehicle) => {
-              const selected = statusGroupVehicleIds.includes(vehicle.id)
+          <div>
+            <div className="mb-3 text-sm text-zinc-400">Fahrzeuge zuweisen</div>
+            <div className="grid gap-3 md:grid-cols-2">
+              {vehicles.map((vehicle) => {
+                const selected = statusGroupVehicleIds.includes(vehicle.id)
 
-              return (
-                <button
-                  key={vehicle.id}
-                  onClick={() => toggleStatusVehicleSelection(vehicle.id, "create")}
-                  className={`rounded-xl border px-4 py-3 text-left transition ${
-                    selected
-                      ? "border-emerald-400 bg-emerald-500/10"
-                      : "border-white/10 bg-white/[0.03] hover:border-orange-500/35"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <img
-                      src={vehicle.image}
-                      alt={vehicle.name}
-                      className="h-12 w-12 object-contain"
-                    />
-                    <div>
-                      <div className="font-medium text-white">{vehicle.name}</div>
-                      <div className="text-sm text-zinc-400">{vehicle.plate || "n/a"}</div>
-                      <div className="text-xs text-zinc-500">{vehicle.note || "Keine Notiz"}</div>
+                return (
+                  <button
+                    key={vehicle.id}
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      toggleStatusVehicleSelection(vehicle.id, "create")
+                    }}
+                    className={`rounded-xl border px-4 py-3 text-left transition ${
+                      selected
+                        ? "border-emerald-400 bg-emerald-500/10"
+                        : "border-white/10 bg-white/[0.03] hover:border-orange-500/35"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={vehicle.image}
+                        alt={vehicle.name}
+                        className="h-12 w-12 object-contain"
+                      />
+                      <div>
+                        <div className="font-medium text-white">{vehicle.name}</div>
+                        <div className="text-sm text-zinc-400">{vehicle.plate || "n/a"}</div>
+                        <div className="text-xs text-zinc-500">{vehicle.note || "Keine Notiz"}</div>
+                      </div>
                     </div>
-                  </div>
-                </button>
-              )
-            })}
+                  </button>
+                )
+              })}
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="mt-6 flex gap-3">
-        <button
-          onClick={createStatusGroup}
-          className="rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 px-5 py-3 font-medium transition hover:scale-[1.01]"
-        >
-          Status speichern
-        </button>
-        <button
-          onClick={() => {
-            setShowCreateStatusModal(false)
-            setStatusGroupName("")
-            setStatusGroupVehicleIds([])
-          }}
-          className="rounded-xl border border-white/10 bg-white/5 px-5 py-3 transition hover:bg-white/10"
-        >
-          Abbrechen
-        </button>
+        <div className="mt-6 flex gap-3">
+          <button
+            type="button"
+            onClick={createStatusGroup}
+            className="rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 px-5 py-3 font-medium transition hover:scale-[1.01]"
+          >
+            Status speichern
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setShowCreateStatusModal(false)
+              setStatusGroupName("")
+              setStatusGroupVehicleIds([])
+            }}
+            className="rounded-xl border border-white/10 bg-white/5 px-5 py-3 transition hover:bg-white/10"
+          >
+            Abbrechen
+          </button>
+        </div>
       </div>
     </div>
   </div>
 )}
+
+
+{editStatusGroupId && (
+  <div className="fixed inset-0 z-[70] overflow-y-auto bg-black/75 p-4 animate-fade">
+    <div className="flex min-h-full items-center justify-center">
+      <div className="animate-scale w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-[2rem] border border-white/10 bg-[#07111f] p-6 shadow-[0_20px_80px_rgba(0,0,0,0.45)]">
+        <div className="mb-6">
+          <div className="text-sm uppercase tracking-[0.25em] text-blue-400">
+            Status bearbeiten
+          </div>
+          <h2 className="mt-2 text-2xl font-semibold">
+            {editStatusGroupName || "Status"}
+          </h2>
+        </div>
+
+        <div className="grid gap-4">
+          <input
+            value={editStatusGroupName}
+            onChange={(e) => setEditStatusGroupName(e.target.value)}
+            placeholder="Status Name"
+            className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 outline-none"
+          />
+
+          <div>
+            <div className="mb-3 text-sm text-zinc-400">Fahrzeuge zuweisen</div>
+            <div className="grid gap-3 md:grid-cols-2">
+              {vehicles.map((vehicle) => {
+                const selected = editStatusGroupVehicleIds.includes(vehicle.id)
+
+                return (
+                  <button
+                    key={vehicle.id}
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      toggleStatusVehicleSelection(vehicle.id, "edit")
+                    }}
+                    className={`rounded-xl border px-4 py-3 text-left transition ${
+                      selected
+                        ? "border-blue-400 bg-blue-500/10"
+                        : "border-white/10 bg-white/[0.03] hover:border-orange-500/35"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={vehicle.image}
+                        alt={vehicle.name}
+                        className="h-12 w-12 object-contain"
+                      />
+                      <div>
+                        <div className="font-medium text-white">{vehicle.name}</div>
+                        <div className="text-sm text-zinc-400">{vehicle.plate || "n/a"}</div>
+                        <div className="text-xs text-zinc-500">{vehicle.note || "Keine Notiz"}</div>
+                      </div>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 flex gap-3">
+          <button
+            type="button"
+            onClick={saveEditStatusGroup}
+            className="rounded-xl bg-blue-500 px-5 py-3 font-medium"
+          >
+            Änderungen speichern
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setEditStatusGroupId(null)
+              setEditStatusGroupName("")
+              setEditStatusGroupVehicleIds([])
+            }}
+            className="rounded-xl border border-white/10 bg-white/5 px-5 py-3 transition hover:bg-white/10"
+          >
+            Abbrechen
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
+
 
 
       <style jsx global>{`
