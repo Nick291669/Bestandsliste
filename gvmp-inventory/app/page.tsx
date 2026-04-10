@@ -340,6 +340,44 @@ if (savedStatusGroups) {
   })
 }, [statusGroups, isLoaded])
 
+
+useEffect(() => {
+  const hasOpenModal =
+    !!selectedVehicleId ||
+    showAssignModal ||
+    !!editItemId ||
+    !!editVehicleId ||
+    !!editDealerId ||
+    !!tradeResultModal ||
+    !!dealerCalcModal ||
+    showCreateStatusModal ||
+    !!editStatusGroupId ||
+    !!dealerItemPriceModal
+
+  if (hasOpenModal) {
+    document.body.style.overflow = "hidden"
+  } else {
+    document.body.style.overflow = ""
+  }
+
+  return () => {
+    document.body.style.overflow = ""
+  }
+}, [
+  selectedVehicleId,
+  showAssignModal,
+  editItemId,
+  editVehicleId,
+  editDealerId,
+  tradeResultModal,
+  dealerCalcModal,
+  showCreateStatusModal,
+  editStatusGroupId,
+  dealerItemPriceModal,
+])
+
+
+
   const activeDealers = useMemo(
     () => dealers.filter((dealer) => dealer.isActive),
     [dealers]
@@ -2575,623 +2613,637 @@ const getStatusMetrics = (group: StorageStatusGroup) => {
       </main>
 
       {selectedVehicle && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 animate-fade">
-          <div className="animate-scale w-full max-w-5xl rounded-[2rem] border border-white/10 bg-[#07111f] p-6 shadow-[0_20px_80px_rgba(0,0,0,0.45)]">
-            <div className="mb-6 flex items-start justify-between gap-4">
-              <div>
-                <div className="text-sm uppercase tracking-[0.25em] text-orange-400">
-                  Fahrzeug Inventar
-                </div>
-                <h2 className="mt-2 text-3xl font-semibold">{selectedVehicle.name}</h2>
-                <div className="mt-2 text-sm text-zinc-400">
-                  {selectedVehicle.plate || "n/a"} · {selectedVehicle.location || "n/a"}
-                </div>
-                <div className="mt-1 text-sm text-zinc-500">
-                  {selectedVehicle.note || "Keine Notiz vorhanden"}
-                </div>
-                <div className="mt-1 text-sm text-zinc-500">
-                  Aktuell: {formatNumber(getVehicleCurrentKg(selectedVehicle))} KG
-                  {selectedVehicle.maxKg && selectedVehicle.maxKg > 0
-                    ? ` / ${formatNumber(selectedVehicle.maxKg)} KG`
-                    : ""}
-                  {" · "}
-                  {formatNumber(getVehicleUsedSlots(selectedVehicle))} Slots
-                  {selectedVehicle.maxSlots && selectedVehicle.maxSlots > 0
-                    ? ` / ${formatNumber(selectedVehicle.maxSlots)} Slots`
-                    : ""}
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => clearVehicleInventory(selectedVehicle.id)}
-                  className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm transition hover:bg-red-500/20"
-                >
-                  Inv Clear
-                </button>
-                <button
-                  onClick={() => setSelectedVehicleId(null)}
-                  className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm transition hover:bg-white/10"
-                >
-                  Schließen
-                </button>
-              </div>
+  <div className="fixed inset-0 z-50 overflow-y-auto bg-black/75 p-4 animate-fade">
+    <div className="flex min-h-full items-center justify-center">
+      <div className="animate-scale w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-[2rem] border border-white/10 bg-[#07111f] p-6 shadow-[0_20px_80px_rgba(0,0,0,0.45)]">
+        <div className="mb-6 flex items-start justify-between gap-4">
+          <div>
+            <div className="text-sm uppercase tracking-[0.25em] text-orange-400">
+              Fahrzeug Inventar
             </div>
+            <h2 className="mt-2 text-3xl font-semibold">{selectedVehicle.name}</h2>
+            <div className="mt-2 text-sm text-zinc-400">
+              {selectedVehicle.plate || "n/a"} · {selectedVehicle.location || "n/a"}
+            </div>
+            <div className="mt-1 text-sm text-zinc-500">
+              {selectedVehicle.note || "Keine Notiz vorhanden"}
+            </div>
+            <div className="mt-1 text-sm text-zinc-500">
+              Aktuell: {formatNumber(getVehicleCurrentKg(selectedVehicle))} KG
+              {selectedVehicle.maxKg && selectedVehicle.maxKg > 0
+                ? ` / ${formatNumber(selectedVehicle.maxKg)} KG`
+                : ""}
+              {" · "}
+              {formatNumber(getVehicleUsedSlots(selectedVehicle))} Slots
+              {selectedVehicle.maxSlots && selectedVehicle.maxSlots > 0
+                ? ` / ${formatNumber(selectedVehicle.maxSlots)} Slots`
+                : ""}
+            </div>
+          </div>
 
-            {selectedVehicle.inventory.length > 0 ? (
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
-                {selectedVehicle.inventory.map((entry, idx) => {
-                  const values = getEntryValues(entry)
-                  const stacks = getItemStacks(entry.item, entry.amount)
-
-                  return (
-                    <div
-                      key={idx}
-                      className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-center transition hover:border-orange-500/35"
-                    >
-                      <img
-                        src={entry.item.image}
-                        alt={entry.item.name}
-                        className="mx-auto h-20 w-20 object-contain"
-                      />
-
-                      <div className="mt-3 space-y-2">
-                        <div className="flex items-center justify-center gap-3">
-                          <button
-                            onClick={() =>
-                              changeInventoryAmount(selectedVehicle.id, entry.item.id, -1)
-                            }
-                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-lg transition hover:border-red-500/40 hover:text-red-400"
-                          >
-                            -
-                          </button>
-
-                          <span className="min-w-[32px] text-sm font-semibold text-orange-400">
-                            {formatNumber(entry.amount)}x
-                          </span>
-
-                          <button
-                            onClick={() =>
-                              changeInventoryAmount(selectedVehicle.id, entry.item.id, 1)
-                            }
-                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-lg transition hover:border-emerald-500/40 hover:text-emerald-400"
-                          >
-                            +
-                          </button>
-                        </div>
-
-                        <div className="text-xs text-zinc-400">
-                          KG: <span className="text-purple-400">{formatNumber(entry.kg)}</span>
-                        </div>
-
-                        <div className="text-xs text-zinc-400">
-                          Stacks: <span className="text-blue-300">{formatNumber(stacks)}</span>
-                        </div>
-
-                        {values.dealerMode ? (
-                          <>
-                            <div className="text-xs text-zinc-400">
-                              Min Preis: <span className="text-emerald-300">{formatMoney(values.green)}</span> / <span className="text-orange-300">{formatMoney(values.black)}</span>
-                            </div>
-                            <div className="text-xs text-zinc-400">
-                              Max Preis: <span className="text-emerald-300">{formatMoney(values.maxGreen)}</span> / <span className="text-red-300">{formatMoney(values.maxBlack)}</span>
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            <div className="text-xs text-zinc-400">
-                              Schwarz: <span className="text-orange-400">{formatMoney(values.black)}</span>
-                            </div>
-
-                            <div className="text-xs text-zinc-400">
-                              Grün: <span className="text-emerald-400">{formatMoney(values.green)}</span>
-                            </div>
-                          </>
-                        )}
-
-                        <div className="text-xs text-zinc-500">{renderItemMeta(entry)}</div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            ) : (
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-10 text-center text-zinc-400">
-                Dieses Fahrzeug ist aktuell leer.
-              </div>
-            )}
+          <div className="flex gap-3">
+            <button
+              onClick={() => clearVehicleInventory(selectedVehicle.id)}
+              className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm transition hover:bg-red-500/20"
+            >
+              Inv Clear
+            </button>
+            <button
+              onClick={() => setSelectedVehicleId(null)}
+              className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm transition hover:bg-white/10"
+            >
+              Schließen
+            </button>
           </div>
         </div>
-      )}
+
+        {selectedVehicle.inventory.length > 0 ? (
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+            {selectedVehicle.inventory.map((entry, idx) => {
+              const values = getEntryValues(entry)
+              const stacks = getItemStacks(entry.item, entry.amount)
+
+              return (
+                <div
+                  key={idx}
+                  className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-center transition hover:border-orange-500/35"
+                >
+                  <img
+                    src={entry.item.image}
+                    alt={entry.item.name}
+                    className="mx-auto h-20 w-20 object-contain"
+                  />
+
+                  <div className="mt-3 space-y-2">
+                    <div className="flex items-center justify-center gap-3">
+                      <button
+                        onClick={() =>
+                          changeInventoryAmount(selectedVehicle.id, entry.item.id, -1)
+                        }
+                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-lg transition hover:border-red-500/40 hover:text-red-400"
+                      >
+                        -
+                      </button>
+
+                      <span className="min-w-[32px] text-sm font-semibold text-orange-400">
+                        {formatNumber(entry.amount)}x
+                      </span>
+
+                      <button
+                        onClick={() =>
+                          changeInventoryAmount(selectedVehicle.id, entry.item.id, 1)
+                        }
+                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-lg transition hover:border-emerald-500/40 hover:text-emerald-400"
+                      >
+                        +
+                      </button>
+                    </div>
+
+                    <div className="text-xs text-zinc-400">
+                      KG: <span className="text-purple-400">{formatNumber(entry.kg)}</span>
+                    </div>
+
+                    <div className="text-xs text-zinc-400">
+                      Stacks: <span className="text-blue-300">{formatNumber(stacks)}</span>
+                    </div>
+
+                    {values.dealerMode ? (
+                      <>
+                        <div className="text-xs text-zinc-400">
+                          Min Preis: <span className="text-emerald-300">{formatMoney(values.green)}</span> / <span className="text-orange-300">{formatMoney(values.black)}</span>
+                        </div>
+                        <div className="text-xs text-zinc-400">
+                          Max Preis: <span className="text-emerald-300">{formatMoney(values.maxGreen)}</span> / <span className="text-red-300">{formatMoney(values.maxBlack)}</span>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="text-xs text-zinc-400">
+                          Schwarz: <span className="text-orange-400">{formatMoney(values.black)}</span>
+                        </div>
+
+                        <div className="text-xs text-zinc-400">
+                          Grün: <span className="text-emerald-400">{formatMoney(values.green)}</span>
+                        </div>
+                      </>
+                    )}
+
+                    <div className="text-xs text-zinc-500">{renderItemMeta(entry)}</div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-10 text-center text-zinc-400">
+            Dieses Fahrzeug ist aktuell leer.
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+)}
 
       {showAssignModal && selectedItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 animate-fade">
-          <div className="animate-scale w-full max-w-xl rounded-[2rem] border border-white/10 bg-[#07111f] p-6 shadow-[0_20px_80px_rgba(0,0,0,0.45)]">
-            <div className="mb-6 flex items-center gap-4">
-              <img
-                src={selectedItem.image}
-                alt={selectedItem.name}
-                className="h-16 w-16 object-contain"
-              />
-              <div>
-                <div className="text-sm uppercase tracking-[0.25em] text-purple-400">
-                  Item zuweisen
-                </div>
-                <h2 className="mt-1 text-2xl font-semibold">{selectedItem.name}</h2>
-              </div>
+  <div className="fixed inset-0 z-50 overflow-y-auto bg-black/75 p-4 animate-fade">
+    <div className="flex min-h-full items-center justify-center">
+      <div className="animate-scale w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-[2rem] border border-white/10 bg-[#07111f] p-6 shadow-[0_20px_80px_rgba(0,0,0,0.45)]">
+        <div className="mb-6 flex items-center gap-4">
+          <img
+            src={selectedItem.image}
+            alt={selectedItem.name}
+            className="h-16 w-16 object-contain"
+          />
+          <div>
+            <div className="text-sm uppercase tracking-[0.25em] text-purple-400">
+              Item zuweisen
             </div>
-
-            <div className="grid gap-4">
-              <select
-                value={assignVehicleId}
-                onChange={(e) => setAssignVehicleId(e.target.value)}
-                className="rounded-xl border border-white/10 bg-[#0b1320] px-4 py-3 text-white outline-none transition focus:border-purple-500/40"
-              >
-                <option value="">Fahrzeug wählen</option>
-                {vehicles.map((v) => {
-                  const currentKg = getVehicleCurrentKg(v)
-                  const usedSlots = getVehicleUsedSlots(v)
-
-                  return (
-                    <option key={v.id} value={v.id}>
-                      {v.name} ({v.plate || "n/a"}) - {v.note || "Keine Notiz"} -{" "}
-                      {v.maxKg && v.maxKg > 0
-                        ? `${formatNumber(currentKg)}/${formatNumber(v.maxKg)} KG`
-                        : `${formatNumber(currentKg)} KG`}
-                      {" - "}
-                      {v.maxSlots && v.maxSlots > 0
-                        ? `${formatNumber(usedSlots)}/${formatNumber(v.maxSlots)} Slots`
-                        : `${formatNumber(usedSlots)} Slots`}
-                    </option>
-                  )
-                })}
-              </select>
-
-              <input
-                type="number"
-                min={0}
-                value={assignAmount}
-                onChange={(e) => setAssignAmount(e.target.value)}
-                placeholder="Anzahl"
-                className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 outline-none transition placeholder:text-zinc-500 focus:border-purple-500/40"
-              />
-
-              <div className="rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-zinc-400">
-                Automatische KG:{" "}
-                <span className="text-purple-400">
-                  {selectedItem && getConversionRatio(selectedItem) !== null
-                    ? formatNumber(getComputedAssignKg())
-                    : "-"}
-                </span>
-              </div>
-
-              <div className="mt-2 flex gap-3">
-                <button
-                  onClick={assignItemToVehicle}
-                  className="rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 px-5 py-3 font-medium transition hover:scale-[1.01] hover:shadow-[0_8px_30px_rgba(99,102,241,0.25)]"
-                >
-                  Zuweisen
-                </button>
-
-                <button
-                  onClick={() => {
-                    setShowAssignModal(false)
-                    setSelectedItem(null)
-                  }}
-                  className="rounded-xl border border-white/10 bg-white/5 px-5 py-3 transition hover:bg-white/10"
-                >
-                  Abbrechen
-                </button>
-              </div>
-            </div>
+            <h2 className="mt-1 text-2xl font-semibold">{selectedItem.name}</h2>
           </div>
         </div>
-      )}
 
-      {dealerCalcModal && (() => {
-        const dealer = dealers.find((d) => d.id === dealerCalcModal.dealerId)
-        if (!dealer) return null
-
-        const amount = Math.max(0, Number(dealerCalcModal.amount) || 0)
-        const black = dealer.cratePriceBlack * amount
-        const green = black * 0.8
-
-        return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 animate-fade">
-            <div className="animate-scale w-full max-w-xl rounded-[2rem] border border-white/10 bg-[#07111f] p-6 shadow-[0_20px_80px_rgba(0,0,0,0.45)]">
-              <div className="mb-6 flex items-center gap-4">
-                <img
-                  src={dealer.image}
-                  alt={dealer.name}
-                  className="h-16 w-16 rounded-xl object-cover"
-                />
-                <div>
-                  <div className="text-sm uppercase tracking-[0.25em] text-red-400">
-                    Dealer Berechnung
-                  </div>
-                  <h2 className="mt-1 text-2xl font-semibold">{dealer.name}</h2>
-                  <div className="mt-1 text-sm text-zinc-400">{dealer.location}</div>
-                </div>
-              </div>
-
-              <div className="grid gap-4">
-                <input
-                  type="number"
-                  min={0}
-                  value={dealerCalcModal.amount}
-                  onChange={(e) =>
-                    setDealerCalcModal((prev) =>
-                      prev ? { ...prev, amount: e.target.value } : null
-                    )
-                  }
-                  placeholder="Anzahl Kisten"
-                  className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 outline-none"
-                />
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4">
-                    Schwarz
-                    <br />
-                    <span className="text-red-300">{formatMoney(black)}</span>
-                  </div>
-                  <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
-                    Grün
-                    <br />
-                    <span className="text-emerald-300">{formatMoney(green)}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-6 flex justify-end">
-                <button
-                  onClick={() => setDealerCalcModal(null)}
-                  className="rounded-xl border border-white/10 bg-white/5 px-5 py-3 transition hover:bg-white/10"
-                >
-                  Schließen
-                </button>
-              </div>
-            </div>
-          </div>
-        )
-      })()}
-
-      {editItemId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 animate-fade">
-          <div className="animate-scale w-full max-w-xl rounded-[2rem] border border-white/10 bg-[#07111f] p-6">
-            <h2 className="mb-5 text-2xl font-semibold">Item bearbeiten</h2>
-            <div className="grid gap-4">
-              <input
-                value={editItemName}
-                onChange={(e) => setEditItemName(e.target.value)}
-                placeholder="Name"
-                className="rounded-xl border border-white/10 bg-black/30 px-4 py-3"
-              />
-
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => handleItemImageUpload(e, "edit")}
-                className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 file:mr-4 file:rounded-lg file:border-0 file:bg-purple-500 file:px-3 file:py-2 file:text-white"
-              />
-
-              <input
-                value={editItemDefaultAmount}
-                onChange={(e) => setEditItemDefaultAmount(e.target.value)}
-                placeholder="Standard Anzahl"
-                className="rounded-xl border border-white/10 bg-black/30 px-4 py-3"
-              />
-
-              <input
-                value={editItemDefaultKg}
-                onChange={(e) => setEditItemDefaultKg(e.target.value)}
-                placeholder="Standard KG"
-                className="rounded-xl border border-white/10 bg-black/30 px-4 py-3"
-              />
-
-              <input
-                value={editItemStackSize}
-                onChange={(e) => setEditItemStackSize(e.target.value)}
-                placeholder="Stack Limit"
-                className="rounded-xl border border-white/10 bg-black/30 px-4 py-3"
-              />
-
-              <input
-                value={editItemPriceBlack}
-                onChange={(e) => setEditItemPriceBlack(e.target.value)}
-                placeholder="Schwarzpreis"
-                className="rounded-xl border border-white/10 bg-black/30 px-4 py-3"
-              />
-
-              <input
-                value={editItemPriceGreen}
-                onChange={(e) => setEditItemPriceGreen(e.target.value)}
-                placeholder="Grünpreis"
-                className="rounded-xl border border-white/10 bg-black/30 px-4 py-3"
-              />
-
-              <label className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/20 px-4 py-3">
-                <input
-                  type="checkbox"
-                  checked={editItemUseDealerPricing}
-                  onChange={(e) => setEditItemUseDealerPricing(e.target.checked)}
-                />
-                <span>Dealer Preis verwenden</span>
-              </label>
-            </div>
-
-            <div className="mt-6 flex gap-3">
-              <button
-                onClick={saveEditItem}
-                className="rounded-xl bg-blue-500 px-5 py-3"
-              >
-                Speichern
-              </button>
-              <button
-                onClick={() => setEditItemId(null)}
-                className="rounded-xl border border-white/10 bg-white/5 px-5 py-3"
-              >
-                Abbrechen
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {editVehicleId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 animate-fade">
-          <div className="animate-scale w-full max-w-xl rounded-[2rem] border border-white/10 bg-[#07111f] p-6">
-            <h2 className="mb-5 text-2xl font-semibold">Fahrzeug bearbeiten</h2>
-            <div className="grid gap-4">
-              <input
-                value={editVehName}
-                onChange={(e) => setEditVehName(e.target.value)}
-                placeholder="Name"
-                className="rounded-xl border border-white/10 bg-black/30 px-4 py-3"
-              />
-
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => handleVehicleImageUpload(e, "edit")}
-                className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 file:mr-4 file:rounded-lg file:border-0 file:bg-orange-500 file:px-3 file:py-2 file:text-white"
-              />
-
-              <input
-                value={editVehPlate}
-                onChange={(e) => setEditVehPlate(e.target.value)}
-                placeholder="Kennzeichen"
-                className="rounded-xl border border-white/10 bg-black/30 px-4 py-3"
-              />
-
-              <input
-                value={editVehLocation}
-                onChange={(e) => setEditVehLocation(e.target.value)}
-                placeholder="Standort"
-                className="rounded-xl border border-white/10 bg-black/30 px-4 py-3"
-              />
-
-              <input
-                value={editVehNote}
-                onChange={(e) => setEditVehNote(e.target.value)}
-                placeholder="Notiz"
-                className="rounded-xl border border-white/10 bg-black/30 px-4 py-3"
-              />
-
-              <input
-                value={editVehMaxKg}
-                onChange={(e) => setEditVehMaxKg(e.target.value)}
-                placeholder="Max KG"
-                className="rounded-xl border border-white/10 bg-black/30 px-4 py-3"
-              />
-
-              <input
-                value={editVehMaxSlots}
-                onChange={(e) => setEditVehMaxSlots(e.target.value)}
-                placeholder="Max Slots"
-                className="rounded-xl border border-white/10 bg-black/30 px-4 py-3"
-              />
-            </div>
-
-            <div className="mt-6 flex gap-3">
-              <button
-                onClick={saveEditVehicle}
-                className="rounded-xl bg-blue-500 px-5 py-3"
-              >
-                Speichern
-              </button>
-              <button
-                onClick={() => setEditVehicleId(null)}
-                className="rounded-xl border border-white/10 bg-white/5 px-5 py-3"
-              >
-                Abbrechen
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {editDealerId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 animate-fade">
-          <div className="animate-scale w-full max-w-2xl rounded-[2rem] border border-white/10 bg-[#07111f] p-6">
-            <h2 className="mb-5 text-2xl font-semibold">Dealer bearbeiten</h2>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <input
-                value={editDealerName}
-                onChange={(e) => setEditDealerName(e.target.value)}
-                placeholder="Dealer Name"
-                className="rounded-xl border border-white/10 bg-black/30 px-4 py-3"
-              />
-
-              <input
-                value={editDealerLocation}
-                onChange={(e) => setEditDealerLocation(e.target.value)}
-                placeholder="Standort"
-                className="rounded-xl border border-white/10 bg-black/30 px-4 py-3"
-              />
-
-              <select
-                value={editDealerStage}
-                onChange={(e) => setEditDealerStage(Number(e.target.value) as 1 | 2 | 3 | 4)}
-                className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-white"
-              >
-                <option value={1}>Stage 1</option>
-                <option value={2}>Stage 2</option>
-                <option value={3}>Stage 3</option>
-                <option value={4}>Stage 4</option>
-              </select>
-
-              <input
-                value={editDealerCratePriceBlack}
-                onChange={(e) => setEditDealerCratePriceBlack(e.target.value)}
-                placeholder="Kisten Preis Schwarz"
-                className="rounded-xl border border-white/10 bg-black/30 px-4 py-3"
-              />
-
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => handleDealerImageUpload(e, "edit")}
-                className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 file:mr-4 file:rounded-lg file:border-0 file:bg-red-500 file:px-3 file:py-2 file:text-white md:col-span-2"
-              />
-
-              <label className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/20 px-4 py-3 md:col-span-2">
-                <input
-                  type="checkbox"
-                  checked={editDealerIsActive}
-                  onChange={(e) => setEditDealerIsActive(e.target.checked)}
-                />
-                <span>Dealer aktiv</span>
-              </label>
-            </div>
-
-            <div className="mt-5">
-  <div className="mb-3 text-sm text-zinc-400">
-    Zusätzliche ankaufbare Items (Kisten sind automatisch aktiv)
-  </div>
-
-  <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-    {items
-      .filter((item) => !isCrateItemName(item.name))
-      .map((item) => {
-        const selected = editDealerExtraItems.some((entry) => entry.itemId === item.id)
-        const currentEntry = editDealerExtraItems.find((entry) => entry.itemId === item.id)
-
-        return (
-          <div
-            key={item.id}
-            className={`rounded-xl border px-3 py-3 transition ${
-              selected
-                ? "border-emerald-400 bg-emerald-500/10"
-                : "border-white/10 bg-white/[0.03]"
-            }`}
+        <div className="grid gap-4">
+          <select
+            value={assignVehicleId}
+            onChange={(e) => setAssignVehicleId(e.target.value)}
+            className="rounded-xl border border-white/10 bg-[#0b1320] px-4 py-3 text-white outline-none transition focus:border-purple-500/40"
           >
+            <option value="">Fahrzeug wählen</option>
+            {vehicles.map((v) => {
+              const currentKg = getVehicleCurrentKg(v)
+              const usedSlots = getVehicleUsedSlots(v)
+
+              return (
+                <option key={v.id} value={v.id}>
+                  {v.name} ({v.plate || "n/a"}) - {v.note || "Keine Notiz"} -{" "}
+                  {v.maxKg && v.maxKg > 0
+                    ? `${formatNumber(currentKg)}/${formatNumber(v.maxKg)} KG`
+                    : `${formatNumber(currentKg)} KG`}
+                  {" - "}
+                  {v.maxSlots && v.maxSlots > 0
+                    ? `${formatNumber(usedSlots)}/${formatNumber(v.maxSlots)} Slots`
+                    : `${formatNumber(usedSlots)} Slots`}
+                </option>
+              )
+            })}
+          </select>
+
+          <input
+            type="number"
+            min={0}
+            value={assignAmount}
+            onChange={(e) => setAssignAmount(e.target.value)}
+            placeholder="Anzahl"
+            className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 outline-none transition placeholder:text-zinc-500 focus:border-purple-500/40"
+          />
+
+          <div className="rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-zinc-400">
+            Automatische KG:{" "}
+            <span className="text-purple-400">
+              {selectedItem && getConversionRatio(selectedItem) !== null
+                ? formatNumber(getComputedAssignKg())
+                : "-"}
+            </span>
+          </div>
+
+          <div className="mt-2 flex gap-3">
             <button
-              onClick={() =>
-                selected
-                  ? openDealerItemPriceModal("edit", item.id, currentEntry?.priceBlack)
-                  : openDealerItemPriceModal("edit", item.id)
-              }
-              className="w-full text-left"
+              onClick={assignItemToVehicle}
+              className="rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 px-5 py-3 font-medium transition hover:scale-[1.01] hover:shadow-[0_8px_30px_rgba(99,102,241,0.25)]"
             >
-              <div className="flex items-center gap-3">
-                <img src={item.image} alt={item.name} className="h-10 w-10 object-contain" />
-                <div>
-                  <div className="text-sm">{item.name}</div>
-                  <div className="text-xs text-zinc-400">
-                    {selected ? `Preis: ${formatMoney(currentEntry?.priceBlack)}` : "Nicht aktiv"}
-                  </div>
-                </div>
-              </div>
+              Zuweisen
             </button>
 
-            {selected && (
-              <div className="mt-3 flex gap-2">
-                <button
-                  onClick={() => openDealerItemPriceModal("edit", item.id, currentEntry?.priceBlack)}
-                  className="rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-xs text-blue-300"
-                >
-                  Preis ändern
-                </button>
-                <button
-                  onClick={() => removeDealerExtraItem("edit", item.id)}
-                  className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300"
-                >
-                  Entfernen
-                </button>
-              </div>
-            )}
-          </div>
-        )
-      })}
-  </div>
-</div>
-
-            <div className="mt-6 flex gap-3">
-              <button
-                onClick={saveEditDealer}
-                className="rounded-xl bg-blue-500 px-5 py-3"
-              >
-                Speichern
-              </button>
-              <button
-                onClick={() => setEditDealerId(null)}
-                className="rounded-xl border border-white/10 bg-white/5 px-5 py-3"
-              >
-                Abbrechen
-              </button>
-            </div>
+            <button
+              onClick={() => {
+                setShowAssignModal(false)
+                setSelectedItem(null)
+              }}
+              className="rounded-xl border border-white/10 bg-white/5 px-5 py-3 transition hover:bg-white/10"
+            >
+              Abbrechen
+            </button>
           </div>
         </div>
-      )}
+      </div>
+    </div>
+  </div>
+)}
+
+     {dealerCalcModal && (() => {
+  const dealer = dealers.find((d) => d.id === dealerCalcModal.dealerId)
+  if (!dealer) return null
+
+  const amount = Math.max(0, Number(dealerCalcModal.amount) || 0)
+  const black = dealer.cratePriceBlack * amount
+  const green = black * 0.8
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/75 p-4 animate-fade">
+      <div className="flex min-h-full items-center justify-center">
+        <div className="animate-scale w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-[2rem] border border-white/10 bg-[#07111f] p-6 shadow-[0_20px_80px_rgba(0,0,0,0.45)]">
+          <div className="mb-6 flex items-center gap-4">
+            <img
+              src={dealer.image}
+              alt={dealer.name}
+              className="h-16 w-16 rounded-xl object-cover"
+            />
+            <div>
+              <div className="text-sm uppercase tracking-[0.25em] text-red-400">
+                Dealer Berechnung
+              </div>
+              <h2 className="mt-1 text-2xl font-semibold">{dealer.name}</h2>
+              <div className="mt-1 text-sm text-zinc-400">{dealer.location}</div>
+            </div>
+          </div>
+
+          <div className="grid gap-4">
+            <input
+              type="number"
+              min={0}
+              value={dealerCalcModal.amount}
+              onChange={(e) =>
+                setDealerCalcModal((prev) =>
+                  prev ? { ...prev, amount: e.target.value } : null
+                )
+              }
+              placeholder="Anzahl Kisten"
+              className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 outline-none"
+            />
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4">
+                Schwarz
+                <br />
+                <span className="text-red-300">{formatMoney(black)}</span>
+              </div>
+              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+                Grün
+                <br />
+                <span className="text-emerald-300">{formatMoney(green)}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 flex justify-end">
+            <button
+              onClick={() => setDealerCalcModal(null)}
+              className="rounded-xl border border-white/10 bg-white/5 px-5 py-3 transition hover:bg-white/10"
+            >
+              Schließen
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+})()}
+
+      {editItemId && (
+  <div className="fixed inset-0 z-50 overflow-y-auto bg-black/75 p-4 animate-fade">
+    <div className="flex min-h-full items-center justify-center">
+      <div className="animate-scale w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-[2rem] border border-white/10 bg-[#07111f] p-6">
+        <h2 className="mb-5 text-2xl font-semibold">Item bearbeiten</h2>
+        <div className="grid gap-4">
+          <input
+            value={editItemName}
+            onChange={(e) => setEditItemName(e.target.value)}
+            placeholder="Name"
+            className="rounded-xl border border-white/10 bg-black/30 px-4 py-3"
+          />
+
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => handleItemImageUpload(e, "edit")}
+            className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 file:mr-4 file:rounded-lg file:border-0 file:bg-purple-500 file:px-3 file:py-2 file:text-white"
+          />
+
+          <input
+            value={editItemDefaultAmount}
+            onChange={(e) => setEditItemDefaultAmount(e.target.value)}
+            placeholder="Standard Anzahl"
+            className="rounded-xl border border-white/10 bg-black/30 px-4 py-3"
+          />
+
+          <input
+            value={editItemDefaultKg}
+            onChange={(e) => setEditItemDefaultKg(e.target.value)}
+            placeholder="Standard KG"
+            className="rounded-xl border border-white/10 bg-black/30 px-4 py-3"
+          />
+
+          <input
+            value={editItemStackSize}
+            onChange={(e) => setEditItemStackSize(e.target.value)}
+            placeholder="Stack Limit"
+            className="rounded-xl border border-white/10 bg-black/30 px-4 py-3"
+          />
+
+          <input
+            value={editItemPriceBlack}
+            onChange={(e) => setEditItemPriceBlack(e.target.value)}
+            placeholder="Schwarzpreis"
+            className="rounded-xl border border-white/10 bg-black/30 px-4 py-3"
+          />
+
+          <input
+            value={editItemPriceGreen}
+            onChange={(e) => setEditItemPriceGreen(e.target.value)}
+            placeholder="Grünpreis"
+            className="rounded-xl border border-white/10 bg-black/30 px-4 py-3"
+          />
+
+          <label className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/20 px-4 py-3">
+            <input
+              type="checkbox"
+              checked={editItemUseDealerPricing}
+              onChange={(e) => setEditItemUseDealerPricing(e.target.checked)}
+            />
+            <span>Dealer Preis verwenden</span>
+          </label>
+        </div>
+
+        <div className="mt-6 flex gap-3">
+          <button
+            onClick={saveEditItem}
+            className="rounded-xl bg-blue-500 px-5 py-3"
+          >
+            Speichern
+          </button>
+          <button
+            onClick={() => setEditItemId(null)}
+            className="rounded-xl border border-white/10 bg-white/5 px-5 py-3"
+          >
+            Abbrechen
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
+      {editVehicleId && (
+  <div className="fixed inset-0 z-50 overflow-y-auto bg-black/75 p-4 animate-fade">
+    <div className="flex min-h-full items-center justify-center">
+      <div className="animate-scale w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-[2rem] border border-white/10 bg-[#07111f] p-6">
+        <h2 className="mb-5 text-2xl font-semibold">Fahrzeug bearbeiten</h2>
+        <div className="grid gap-4">
+          <input
+            value={editVehName}
+            onChange={(e) => setEditVehName(e.target.value)}
+            placeholder="Name"
+            className="rounded-xl border border-white/10 bg-black/30 px-4 py-3"
+          />
+
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => handleVehicleImageUpload(e, "edit")}
+            className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 file:mr-4 file:rounded-lg file:border-0 file:bg-orange-500 file:px-3 file:py-2 file:text-white"
+          />
+
+          <input
+            value={editVehPlate}
+            onChange={(e) => setEditVehPlate(e.target.value)}
+            placeholder="Kennzeichen"
+            className="rounded-xl border border-white/10 bg-black/30 px-4 py-3"
+          />
+
+          <input
+            value={editVehLocation}
+            onChange={(e) => setEditVehLocation(e.target.value)}
+            placeholder="Standort"
+            className="rounded-xl border border-white/10 bg-black/30 px-4 py-3"
+          />
+
+          <input
+            value={editVehNote}
+            onChange={(e) => setEditVehNote(e.target.value)}
+            placeholder="Notiz"
+            className="rounded-xl border border-white/10 bg-black/30 px-4 py-3"
+          />
+
+          <input
+            value={editVehMaxKg}
+            onChange={(e) => setEditVehMaxKg(e.target.value)}
+            placeholder="Max KG"
+            className="rounded-xl border border-white/10 bg-black/30 px-4 py-3"
+          />
+
+          <input
+            value={editVehMaxSlots}
+            onChange={(e) => setEditVehMaxSlots(e.target.value)}
+            placeholder="Max Slots"
+            className="rounded-xl border border-white/10 bg-black/30 px-4 py-3"
+          />
+        </div>
+
+        <div className="mt-6 flex gap-3">
+          <button
+            onClick={saveEditVehicle}
+            className="rounded-xl bg-blue-500 px-5 py-3"
+          >
+            Speichern
+          </button>
+          <button
+            onClick={() => setEditVehicleId(null)}
+            className="rounded-xl border border-white/10 bg-white/5 px-5 py-3"
+          >
+            Abbrechen
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
+      {editDealerId && (
+  <div className="fixed inset-0 z-50 overflow-y-auto bg-black/75 p-4 animate-fade">
+    <div className="flex min-h-full items-center justify-center">
+      <div className="animate-scale w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-[2rem] border border-white/10 bg-[#07111f] p-6">
+        <h2 className="mb-5 text-2xl font-semibold">Dealer bearbeiten</h2>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <input
+            value={editDealerName}
+            onChange={(e) => setEditDealerName(e.target.value)}
+            placeholder="Dealer Name"
+            className="rounded-xl border border-white/10 bg-black/30 px-4 py-3"
+          />
+
+          <input
+            value={editDealerLocation}
+            onChange={(e) => setEditDealerLocation(e.target.value)}
+            placeholder="Standort"
+            className="rounded-xl border border-white/10 bg-black/30 px-4 py-3"
+          />
+
+          <select
+            value={editDealerStage}
+            onChange={(e) => setEditDealerStage(Number(e.target.value) as 1 | 2 | 3 | 4)}
+            className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-white"
+          >
+            <option value={1}>Stage 1</option>
+            <option value={2}>Stage 2</option>
+            <option value={3}>Stage 3</option>
+            <option value={4}>Stage 4</option>
+          </select>
+
+          <input
+            value={editDealerCratePriceBlack}
+            onChange={(e) => setEditDealerCratePriceBlack(e.target.value)}
+            placeholder="Kisten Preis Schwarz"
+            className="rounded-xl border border-white/10 bg-black/30 px-4 py-3"
+          />
+
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => handleDealerImageUpload(e, "edit")}
+            className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 file:mr-4 file:rounded-lg file:border-0 file:bg-red-500 file:px-3 file:py-2 file:text-white md:col-span-2"
+          />
+
+          <label className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/20 px-4 py-3 md:col-span-2">
+            <input
+              type="checkbox"
+              checked={editDealerIsActive}
+              onChange={(e) => setEditDealerIsActive(e.target.checked)}
+            />
+            <span>Dealer aktiv</span>
+          </label>
+        </div>
+
+        <div className="mt-5">
+          <div className="mb-3 text-sm text-zinc-400">
+            Zusätzliche ankaufbare Items (Kisten sind automatisch aktiv)
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            {items
+              .filter((item) => !isCrateItemName(item.name))
+              .map((item) => {
+                const selected = editDealerExtraItems.some((entry) => entry.itemId === item.id)
+                const currentEntry = editDealerExtraItems.find((entry) => entry.itemId === item.id)
+
+                return (
+                  <div
+                    key={item.id}
+                    className={`rounded-xl border px-3 py-3 transition ${
+                      selected
+                        ? "border-emerald-400 bg-emerald-500/10"
+                        : "border-white/10 bg-white/[0.03]"
+                    }`}
+                  >
+                    <button
+                      onClick={() =>
+                        selected
+                          ? openDealerItemPriceModal("edit", item.id, currentEntry?.priceBlack)
+                          : openDealerItemPriceModal("edit", item.id)
+                      }
+                      className="w-full text-left"
+                    >
+                      <div className="flex items-center gap-3">
+                        <img src={item.image} alt={item.name} className="h-10 w-10 object-contain" />
+                        <div>
+                          <div className="text-sm">{item.name}</div>
+                          <div className="text-xs text-zinc-400">
+                            {selected ? `Preis: ${formatMoney(currentEntry?.priceBlack)}` : "Nicht aktiv"}
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+
+                    {selected && (
+                      <div className="mt-3 flex gap-2">
+                        <button
+                          onClick={() => openDealerItemPriceModal("edit", item.id, currentEntry?.priceBlack)}
+                          className="rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-xs text-blue-300"
+                        >
+                          Preis ändern
+                        </button>
+                        <button
+                          onClick={() => removeDealerExtraItem("edit", item.id)}
+                          className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300"
+                        >
+                          Entfernen
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+          </div>
+        </div>
+
+        <div className="mt-6 flex gap-3">
+          <button
+            onClick={saveEditDealer}
+            className="rounded-xl bg-blue-500 px-5 py-3"
+          >
+            Speichern
+          </button>
+          <button
+            onClick={() => setEditDealerId(null)}
+            className="rounded-xl border border-white/10 bg-white/5 px-5 py-3"
+          >
+            Abbrechen
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
 
       {tradeResultModal && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/75 p-4 animate-fade">
-          <div className="animate-scale w-full max-w-xl rounded-[2rem] border border-white/10 bg-[#07111f] p-6 shadow-[0_20px_80px_rgba(0,0,0,0.45)]">
-            <div className="mb-4">
-              <div
-                className={`text-sm uppercase tracking-[0.25em] ${
-                  tradeResultModal.variant === "success"
-                    ? "text-emerald-400"
-                    : tradeResultModal.variant === "warning"
-                    ? "text-orange-400"
-                    : tradeResultModal.variant === "error"
-                    ? "text-red-400"
-                    : "text-blue-400"
-                }`}
-              >
-                Transaktionsmeldung
-              </div>
-              <h2 className="mt-2 text-2xl font-semibold">{tradeResultModal.title}</h2>
-              <p className="mt-3 text-zinc-300">{tradeResultModal.message}</p>
-            </div>
+  <div className="fixed inset-0 z-[60] overflow-y-auto bg-black/75 p-4 animate-fade">
+    <div className="flex min-h-full items-center justify-center">
+      <div className="animate-scale w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-[2rem] border border-white/10 bg-[#07111f] p-6 shadow-[0_20px_80px_rgba(0,0,0,0.45)]">
+        <div className="mb-4">
+          <div
+            className={`text-sm uppercase tracking-[0.25em] ${
+              tradeResultModal.variant === "success"
+                ? "text-emerald-400"
+                : tradeResultModal.variant === "warning"
+                ? "text-orange-400"
+                : tradeResultModal.variant === "error"
+                ? "text-red-400"
+                : "text-blue-400"
+            }`}
+          >
+            Transaktionsmeldung
+          </div>
+          <h2 className="mt-2 text-2xl font-semibold">{tradeResultModal.title}</h2>
+          <p className="mt-3 text-zinc-300">{tradeResultModal.message}</p>
+        </div>
 
-            {tradeResultModal.lines && tradeResultModal.lines.length > 0 && (
-              <div className="max-h-72 overflow-y-auto rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                <div className="space-y-2 text-sm text-zinc-300">
-                  {tradeResultModal.lines.map((line, index) => (
-                    <div
-                      key={`${line}-${index}`}
-                      className="rounded-xl border border-white/5 bg-black/20 px-3 py-2"
-                    >
-                      {line}
-                    </div>
-                  ))}
+        {tradeResultModal.lines && tradeResultModal.lines.length > 0 && (
+          <div className="max-h-72 overflow-y-auto rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+            <div className="space-y-2 text-sm text-zinc-300">
+              {tradeResultModal.lines.map((line, index) => (
+                <div
+                  key={`${line}-${index}`}
+                  className="rounded-xl border border-white/5 bg-black/20 px-3 py-2"
+                >
+                  {line}
                 </div>
-              </div>
-            )}
-
-            <div className="mt-6 flex justify-end">
-              <button
-                onClick={() => setTradeResultModal(null)}
-                className="rounded-xl border border-white/10 bg-white/5 px-5 py-3 transition hover:bg-white/10"
-              >
-                Schließen
-              </button>
+              ))}
             </div>
           </div>
+        )}
+
+        <div className="mt-6 flex justify-end">
+          <button
+            onClick={() => setTradeResultModal(null)}
+            className="rounded-xl border border-white/10 bg-white/5 px-5 py-3 transition hover:bg-white/10"
+          >
+            Schließen
+          </button>
         </div>
-      )}
+      </div>
+    </div>
+  </div>
+)}
 
 
 {dealerItemPriceModal && (() => {
@@ -3202,69 +3254,71 @@ const getStatusMetrics = (group: StorageStatusGroup) => {
   const currentEntry = sourceItems.find((entry) => entry.itemId === item.id)
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/75 p-4 animate-fade">
-      <div className="animate-scale w-full max-w-lg rounded-[2rem] border border-white/10 bg-[#07111f] p-6 shadow-[0_20px_80px_rgba(0,0,0,0.45)]">
-        <div className="mb-6 flex items-center gap-4">
-          <img
-            src={item.image}
-            alt={item.name}
-            className="h-16 w-16 object-contain"
-          />
-          <div>
-            <div className="text-sm uppercase tracking-[0.25em] text-red-400">
-              Dealer Item Preis
-            </div>
-            <h2 className="mt-1 text-2xl font-semibold">{item.name}</h2>
-            <div className="mt-1 text-sm text-zinc-400">
-              Preis für diesen Dealer festlegen
+    <div className="fixed inset-0 z-[70] overflow-y-auto bg-black/75 p-4 animate-fade">
+      <div className="flex min-h-full items-center justify-center">
+        <div className="animate-scale w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-[2rem] border border-white/10 bg-[#07111f] p-6 shadow-[0_20px_80px_rgba(0,0,0,0.45)]">
+          <div className="mb-6 flex items-center gap-4">
+            <img
+              src={item.image}
+              alt={item.name}
+              className="h-16 w-16 object-contain"
+            />
+            <div>
+              <div className="text-sm uppercase tracking-[0.25em] text-red-400">
+                Dealer Item Preis
+              </div>
+              <h2 className="mt-1 text-2xl font-semibold">{item.name}</h2>
+              <div className="mt-1 text-sm text-zinc-400">
+                Preis für diesen Dealer festlegen
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="grid gap-4">
-          <input
-            type="number"
-            min={0}
-            value={dealerItemPriceModal.price}
-            onChange={(e) =>
-              setDealerItemPriceModal((prev) =>
-                prev ? { ...prev, price: e.target.value } : null
-              )
-            }
-            placeholder="Schwarzpreis"
-            className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 outline-none"
-          />
+          <div className="grid gap-4">
+            <input
+              type="number"
+              min={0}
+              value={dealerItemPriceModal.price}
+              onChange={(e) =>
+                setDealerItemPriceModal((prev) =>
+                  prev ? { ...prev, price: e.target.value } : null
+                )
+              }
+              placeholder="Schwarzpreis"
+              className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 outline-none"
+            />
 
-          <div className="rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-zinc-400">
-            Grünpreis:{" "}
-            <span className="text-emerald-300">
-              {dealerItemPriceModal.price
-                ? formatMoney((Math.max(0, Number(dealerItemPriceModal.price) || 0)) * 0.8)
-                : "-"}
-            </span>
+            <div className="rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-zinc-400">
+              Grünpreis:{" "}
+              <span className="text-emerald-300">
+                {dealerItemPriceModal.price
+                  ? formatMoney((Math.max(0, Number(dealerItemPriceModal.price) || 0)) * 0.8)
+                  : "-"}
+              </span>
+            </div>
+
+            {currentEntry && (
+              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-zinc-300">
+                Aktueller Preis: <span className="text-orange-300">{formatMoney(currentEntry.priceBlack)}</span>
+              </div>
+            )}
           </div>
 
-          {currentEntry && (
-            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-zinc-300">
-              Aktueller Preis: <span className="text-orange-300">{formatMoney(currentEntry.priceBlack)}</span>
-            </div>
-          )}
-        </div>
+          <div className="mt-6 flex gap-3">
+            <button
+              onClick={saveDealerItemPrice}
+              className="rounded-xl bg-gradient-to-r from-red-600 to-orange-600 px-5 py-3 font-medium transition hover:scale-[1.01]"
+            >
+              Speichern
+            </button>
 
-        <div className="mt-6 flex gap-3">
-          <button
-            onClick={saveDealerItemPrice}
-            className="rounded-xl bg-gradient-to-r from-red-600 to-orange-600 px-5 py-3 font-medium transition hover:scale-[1.01]"
-          >
-            Speichern
-          </button>
-
-          <button
-            onClick={() => setDealerItemPriceModal(null)}
-            className="rounded-xl border border-white/10 bg-white/5 px-5 py-3 transition hover:bg-white/10"
-          >
-            Abbrechen
-          </button>
+            <button
+              onClick={() => setDealerItemPriceModal(null)}
+              className="rounded-xl border border-white/10 bg-white/5 px-5 py-3 transition hover:bg-white/10"
+            >
+              Abbrechen
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -3272,85 +3326,11 @@ const getStatusMetrics = (group: StorageStatusGroup) => {
 })()}
 
 
-{showCreateStatusModal && (
-  <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/75 p-4 animate-fade">
-    <div className="animate-scale w-full max-w-3xl rounded-[2rem] border border-white/10 bg-[#07111f] p-6 shadow-[0_20px_80px_rgba(0,0,0,0.45)]">
-      <div className="mb-6">
-        <div className="text-sm uppercase tracking-[0.25em] text-emerald-400">
-          Status erstellen
-        </div>
-        <h2 className="mt-2 text-2xl font-semibold">Neuen Lager Status anlegen</h2>
-      </div>
-
-      <div className="grid gap-4">
-        <input
-          value={statusGroupName}
-          onChange={(e) => setStatusGroupName(e.target.value)}
-          placeholder="Status Name, z. B. Kisten, Waffenlager, Dealer Route"
-          className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 outline-none"
-        />
-
-        <div>
-          <div className="mb-3 text-sm text-zinc-400">Fahrzeuge zuweisen</div>
-          <div className="grid gap-3 md:grid-cols-2">
-            {vehicles.map((vehicle) => {
-              const selected = statusGroupVehicleIds.includes(vehicle.id)
-
-              return (
-                <button
-                  key={vehicle.id}
-                  onClick={() => toggleStatusVehicleSelection(vehicle.id, "create")}
-                  className={`rounded-xl border px-4 py-3 text-left transition ${
-                    selected
-                      ? "border-emerald-400 bg-emerald-500/10"
-                      : "border-white/10 bg-white/[0.03] hover:border-orange-500/35"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <img
-                      src={vehicle.image}
-                      alt={vehicle.name}
-                      className="h-12 w-12 object-contain"
-                    />
-                    <div>
-                      <div className="font-medium text-white">{vehicle.name}</div>
-                      <div className="text-sm text-zinc-400">{vehicle.plate || "n/a"}</div>
-                      <div className="text-xs text-zinc-500">{vehicle.note || "Keine Notiz"}</div>
-                    </div>
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-6 flex gap-3">
-        <button
-          onClick={createStatusGroup}
-          className="rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 px-5 py-3 font-medium transition hover:scale-[1.01]"
-        >
-          Status speichern
-        </button>
-        <button
-          onClick={() => {
-            setShowCreateStatusModal(false)
-            setStatusGroupName("")
-            setStatusGroupVehicleIds([])
-          }}
-          className="rounded-xl border border-white/10 bg-white/5 px-5 py-3 transition hover:bg-white/10"
-        >
-          Abbrechen
-        </button>
-      </div>
-    </div>
-  </div>
-)}
 
 
 {showCreateStatusModal && (
-  <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/75 p-4 animate-fade">
-    <div className="animate-scale w-full max-w-3xl rounded-[2rem] border border-white/10 bg-[#07111f] p-6 shadow-[0_20px_80px_rgba(0,0,0,0.45)]">
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 animate-fade">
+  <div className="animate-scale w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-[2rem] border border-white/10 bg-[#07111f] p-6 shadow-[0_20px_80px_rgba(0,0,0,0.45)]">
       <div className="mb-6">
         <div className="text-sm uppercase tracking-[0.25em] text-emerald-400">
           Status erstellen
