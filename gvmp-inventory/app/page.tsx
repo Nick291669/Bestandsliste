@@ -1577,6 +1577,41 @@ const getStatusMetrics = (group: StorageStatusGroup) => {
   }
 }
 
+const getLeastLoadedVehicles = (group: StorageStatusGroup) => {
+  const groupVehicles = getStatusVehicles(group)
+
+  return groupVehicles
+    .map((vehicle) => {
+      const usedKg = getVehicleCurrentKg(vehicle)
+      const maxKg = vehicle.maxKg || 0
+      const freeKg = Math.max(0, maxKg - usedKg)
+
+      const usedSlots = getVehicleUsedSlots(vehicle)
+      const maxSlots = vehicle.maxSlots || 0
+      const freeSlots = Math.max(0, maxSlots - usedSlots)
+
+      const kgPercent =
+        maxKg > 0 ? (usedKg / maxKg) * 100 : Number.POSITIVE_INFINITY
+      const slotPercent =
+        maxSlots > 0 ? (usedSlots / maxSlots) * 100 : Number.POSITIVE_INFINITY
+
+      const loadScore = Math.min(kgPercent, slotPercent)
+
+      return {
+        vehicle,
+        usedKg,
+        maxKg,
+        freeKg,
+        usedSlots,
+        maxSlots,
+        freeSlots,
+        loadScore: Number.isFinite(loadScore) ? loadScore : 999999,
+      }
+    })
+    .sort((a, b) => a.loadScore - b.loadScore)
+    .slice(0, 3)
+}
+
 const addTradeHistoryEntry = (
   type: "buy" | "sell",
   item: Item,
@@ -1914,11 +1949,51 @@ const repeatTradeHistoryEntry = (entry: TradeHistoryEntry) => {
           </div>
 
           <div className="mt-4 text-xs text-zinc-500">
-            Zugewiesen:{" "}
-            {getStatusVehicles(group)
-              .map((vehicle) => vehicle.name)
-              .join(", ") || "Keine Fahrzeuge"}
+  Zugewiesen:{" "}
+  {getStatusVehicles(group)
+    .map((vehicle) => vehicle.name)
+    .join(", ") || "Keine Fahrzeuge"}
+</div>
+
+<div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-3">
+  <div className="mb-2 text-xs uppercase tracking-[0.2em] text-zinc-400">
+    Wenigster Inhalt
+  </div>
+
+  <div className="space-y-2 text-xs text-zinc-300">
+    {getLeastLoadedVehicles(group).length > 0 ? (
+      getLeastLoadedVehicles(group).map(({ vehicle, usedSlots, maxSlots, freeSlots, usedKg, maxKg, freeKg }) => (
+        <div
+          key={vehicle.id}
+          className="rounded-lg border border-white/5 bg-white/[0.03] px-3 py-2"
+        >
+          <div className="font-medium text-white">{vehicle.name}</div>
+          <div className="mt-1 text-zinc-400">
+            Slots:{" "}
+            <span className="text-blue-300">
+              {formatNumber(usedSlots)} / {formatNumber(maxSlots)}
+            </span>
+            {" · "}frei:{" "}
+            <span className="text-emerald-300">{formatNumber(freeSlots)}</span>
           </div>
+          <div className="text-zinc-400">
+            KG:{" "}
+            <span className="text-purple-300">
+              {formatNumber(usedKg)} / {formatNumber(maxKg)}
+            </span>
+            {" · "}frei:{" "}
+            <span className="text-emerald-300">{formatNumber(freeKg)}</span>
+          </div>
+          {vehicle.note && (
+            <div className="mt-1 text-zinc-500 line-clamp-1">{vehicle.note}</div>
+          )}
+        </div>
+      ))
+    ) : (
+      <div className="text-zinc-500">Keine Fahrzeuge vorhanden</div>
+    )}
+  </div>
+</div>
         </div>
       )
     })}
