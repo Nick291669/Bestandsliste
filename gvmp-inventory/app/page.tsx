@@ -75,6 +75,13 @@ type StorageStatusGroup = {
   vehicleIds: string[]
 }
 
+type DealerStagePrices = {
+  stage1: number
+  stage2: number
+  stage3: number
+  stage4: number
+}
+
 type TradeHistoryEntry = {
   id: string
   type: "buy" | "sell"
@@ -92,6 +99,7 @@ const VEHICLES_KEY = "escocars_storage_vehicles_db_v1"
 const DEALERS_KEY = "escocars_storage_dealers_db_v1"
 const STATUS_GROUPS_KEY = "escocars_storage_status_groups_db_v1"
 const TRADE_HISTORY_KEY = "escocars_trade_history_db_v1"
+const DEALER_STAGE_PRICES_KEY = "escocars_dealer_stage_prices_db_v1"
 
 export default function Page() {
   const [activeTab, setActiveTab] = useState<TabKey>("storage")
@@ -188,6 +196,17 @@ const [editStatusGroupId, setEditStatusGroupId] = useState<string | null>(null)
 const [editStatusGroupName, setEditStatusGroupName] = useState("")
 const [editStatusGroupVehicleIds, setEditStatusGroupVehicleIds] = useState<string[]>([])
 
+const [dealerStagePrices, setDealerStagePrices] = useState<DealerStagePrices>({
+  stage1: 0,
+  stage2: 0,
+  stage3: 0,
+  stage4: 0,
+})
+
+const [showStagePriceModal, setShowStagePriceModal] = useState(false)
+
+const [editDealerUseManualCratePrice, setEditDealerUseManualCratePrice] = useState(false)
+
 const [tradeHistory, setTradeHistory] = useState<TradeHistoryEntry[]>([])
   
 
@@ -259,6 +278,14 @@ const removeDealerExtraItem = (mode: "create" | "edit", itemId: string) => {
   }
 }
 
+const getStagePrice = (stage: 1 | 2 | 3 | 4) => {
+  if (stage === 1) return dealerStagePrices.stage1 || 0
+  if (stage === 2) return dealerStagePrices.stage2 || 0
+  if (stage === 3) return dealerStagePrices.stage3 || 0
+  return dealerStagePrices.stage4 || 0
+}
+
+
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -267,6 +294,7 @@ const removeDealerExtraItem = (mode: "create" | "edit", itemId: string) => {
         const savedDealers = await get<Dealer[]>(DEALERS_KEY)
         const savedStatusGroups = await get<StorageStatusGroup[]>(STATUS_GROUPS_KEY)
         const savedTradeHistory = await get<TradeHistoryEntry[]>(TRADE_HISTORY_KEY)
+        const savedDealerStagePrices = await get<DealerStagePrices>(DEALER_STAGE_PRICES_KEY)
 
         if (savedItems) {
           setItems(
@@ -281,6 +309,10 @@ const removeDealerExtraItem = (mode: "create" | "edit", itemId: string) => {
             }))
           )
         }
+
+        if (savedDealerStagePrices) {
+  setDealerStagePrices(savedDealerStagePrices)
+}
 
         if (savedVehicles) {
           setVehicles(
@@ -400,6 +432,13 @@ useEffect(() => {
     console.error("Fehler beim Speichern des Verlaufs:", error)
   })
 }, [tradeHistory, isLoaded])
+
+useEffect(() => {
+  if (!isLoaded) return
+  set(DEALER_STAGE_PRICES_KEY, dealerStagePrices).catch((error) => {
+    console.error("Fehler beim Speichern der Stage Preise:", error)
+  })
+}, [dealerStagePrices, isLoaded])
 
 
 
@@ -739,7 +778,9 @@ useEffect(() => {
   }
 
   const createDealer = () => {
-  if (!dealerName.trim() || !dealerImageBase64 || !dealerLocation.trim() || !dealerCratePriceBlack.trim()) return
+  if (!dealerName.trim() || !dealerImageBase64 || !dealerLocation.trim()) return
+
+  const autoStagePrice = getStagePrice(dealerStage)
 
   setDealers((prev) => [
     ...prev,
@@ -749,7 +790,7 @@ useEffect(() => {
       image: dealerImageBase64,
       location: dealerLocation.trim(),
       stage: dealerStage,
-      cratePriceBlack: Math.max(0, Number(dealerCratePriceBlack) || 0),
+      cratePriceBlack: autoStagePrice,
       isActive: dealerIsActive,
       extraItems: dealerExtraItems,
     },
@@ -887,10 +928,17 @@ useEffect(() => {
   setEditDealerCratePriceBlack(dealer.cratePriceBlack.toString())
   setEditDealerExtraItems(dealer.extraItems)
   setEditDealerIsActive(dealer.isActive)
+
+  const stageBasePrice = getStagePrice(dealer.stage)
+  setEditDealerUseManualCratePrice(stageBasePrice !== dealer.cratePriceBlack)
 }
 
   const saveEditDealer = () => {
-  if (!editDealerId || !editDealerName.trim() || !editDealerImageBase64 || !editDealerLocation.trim() || !editDealerCratePriceBlack.trim()) return
+  if (!editDealerId || !editDealerName.trim() || !editDealerImageBase64 || !editDealerLocation.trim()) return
+
+  const finalCratePrice = editDealerUseManualCratePrice
+    ? Math.max(0, Number(editDealerCratePriceBlack) || 0)
+    : getStagePrice(editDealerStage)
 
   setDealers((prev) =>
     prev.map((dealer) =>
@@ -901,7 +949,7 @@ useEffect(() => {
             image: editDealerImageBase64,
             location: editDealerLocation.trim(),
             stage: editDealerStage,
-            cratePriceBlack: Math.max(0, Number(editDealerCratePriceBlack) || 0),
+            cratePriceBlack: finalCratePrice,
             extraItems: editDealerExtraItems,
             isActive: editDealerIsActive,
           }
@@ -910,6 +958,7 @@ useEffect(() => {
   )
 
   setEditDealerId(null)
+  setEditDealerUseManualCratePrice(false)
 }
 
   const deleteItem = (itemId: string) => {
@@ -1074,13 +1123,14 @@ useEffect(() => {
   const exportBackup = () => {
     try {
       const backup = {
-  version: 6,
+  version: 7,
   exportedAt: new Date().toISOString(),
   items,
   vehicles,
   dealers,
   statusGroups,
   tradeHistory,
+  dealerStagePrices,
 }
 
       const blob = new Blob([JSON.stringify(backup, null, 2)], {
@@ -1125,6 +1175,14 @@ useEffect(() => {
       setDealers(Array.isArray(backup.dealers) ? backup.dealers : [])
       setStatusGroups(Array.isArray(backup.statusGroups) ? backup.statusGroups : [])
       setTradeHistory(Array.isArray(backup.tradeHistory) ? backup.tradeHistory : [])
+      setDealerStagePrices(
+  backup.dealerStagePrices ?? {
+    stage1: 0,
+    stage2: 0,
+    stage3: 0,
+    stage4: 0,
+  }
+)
       
 
       await set(ITEMS_KEY, backup.items)
@@ -1132,6 +1190,15 @@ useEffect(() => {
       await set(DEALERS_KEY, Array.isArray(backup.dealers) ? backup.dealers : [])
       await set(STATUS_GROUPS_KEY, Array.isArray(backup.statusGroups) ? backup.statusGroups : [])
       await set(TRADE_HISTORY_KEY, Array.isArray(backup.tradeHistory) ? backup.tradeHistory : [])
+      await set(
+  DEALER_STAGE_PRICES_KEY,
+  backup.dealerStagePrices ?? {
+    stage1: 0,
+    stage2: 0,
+    stage3: 0,
+    stage4: 0,
+  }
+)
 
       alert("Backup erfolgreich importiert.")
     } catch (error) {
@@ -2494,7 +2561,16 @@ const repeatTradeHistoryEntry = (entry: TradeHistoryEntry) => {
         {activeTab === "dealers" && (
           <section className="space-y-8">
             <div className="rounded-[2rem] border border-white/10 bg-[#08111f]/90 p-6">
-              <h2 className="mb-5 text-xl font-semibold">Dealer erstellen</h2>
+              <div className="mb-5 flex items-center justify-between gap-3">
+  <h2 className="text-xl font-semibold">Dealer erstellen</h2>
+
+  <button
+    onClick={() => setShowStagePriceModal(true)}
+    className="rounded-xl border border-purple-500/30 bg-purple-500/10 px-4 py-2 text-sm text-purple-300 transition hover:bg-purple-500/20"
+  >
+    Stage Preise
+  </button>
+</div>
 
               <div className="grid gap-4 md:grid-cols-2">
                 <input
@@ -2522,14 +2598,12 @@ const repeatTradeHistoryEntry = (entry: TradeHistoryEntry) => {
                   <option value={4}>Stage 4 - höchstes Risiko</option>
                 </select>
 
-                <input
-                  type="number"
-                  min={0}
-                  value={dealerCratePriceBlack}
-                  onChange={(e) => setDealerCratePriceBlack(e.target.value)}
-                  placeholder="Kisten Preis Schwarz"
-                  className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 outline-none"
-                />
+                <div className="rounded-xl border border-white/10 bg-black/20 px-4 py-3">
+  <div className="text-sm text-zinc-400">Kisten Preis Schwarz</div>
+  <div className="mt-1 text-orange-400">
+    {formatMoney(getStagePrice(dealerStage))}
+  </div>
+</div>
 
                 <input
                   id="dealerFileInput"
@@ -3409,8 +3483,15 @@ const repeatTradeHistoryEntry = (entry: TradeHistoryEntry) => {
           />
 
           <select
-            value={editDealerStage}
-            onChange={(e) => setEditDealerStage(Number(e.target.value) as 1 | 2 | 3 | 4)}
+  value={editDealerStage}
+  onChange={(e) => {
+    const nextStage = Number(e.target.value) as 1 | 2 | 3 | 4
+    setEditDealerStage(nextStage)
+
+    if (!editDealerUseManualCratePrice) {
+      setEditDealerCratePriceBlack(String(getStagePrice(nextStage)))
+    }
+  }}
             className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-white"
           >
             <option value={1}>Stage 1</option>
@@ -3419,12 +3500,37 @@ const repeatTradeHistoryEntry = (entry: TradeHistoryEntry) => {
             <option value={4}>Stage 4</option>
           </select>
 
-          <input
-            value={editDealerCratePriceBlack}
-            onChange={(e) => setEditDealerCratePriceBlack(e.target.value)}
-            placeholder="Kisten Preis Schwarz"
-            className="rounded-xl border border-white/10 bg-black/30 px-4 py-3"
-          />
+          <div className="rounded-xl border border-white/10 bg-black/20 px-4 py-3">
+  <div className="text-sm text-zinc-400">Stage Preis Schwarz</div>
+  <div className="mt-1 text-orange-400">
+    {formatMoney(getStagePrice(editDealerStage))}
+  </div>
+</div>
+
+<label className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/20 px-4 py-3 md:col-span-2">
+  <input
+    type="checkbox"
+    checked={editDealerUseManualCratePrice}
+    onChange={(e) => {
+      const checked = e.target.checked
+      setEditDealerUseManualCratePrice(checked)
+
+      if (!checked) {
+        setEditDealerCratePriceBlack(String(getStagePrice(editDealerStage)))
+      }
+    }}
+  />
+  <span>Manuellen Kistenpreis verwenden</span>
+</label>
+
+{editDealerUseManualCratePrice && (
+  <input
+    value={editDealerCratePriceBlack}
+    onChange={(e) => setEditDealerCratePriceBlack(e.target.value)}
+    placeholder="Manueller Kisten Preis Schwarz"
+    className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 md:col-span-2"
+  />
+)}
 
           <input
             type="file"
@@ -3821,6 +3927,92 @@ const repeatTradeHistoryEntry = (entry: TradeHistoryEntry) => {
             className="rounded-xl border border-white/10 bg-white/5 px-5 py-3 transition hover:bg-white/10"
           >
             Abbrechen
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
+
+{showStagePriceModal && (
+  <div className="fixed inset-0 z-[70] overflow-y-auto bg-black/75 p-4 animate-fade">
+    <div className="flex min-h-full items-center justify-center">
+      <div className="animate-scale w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-[2rem] border border-white/10 bg-[#07111f] p-6 shadow-[0_20px_80px_rgba(0,0,0,0.45)]">
+        <div className="mb-6">
+          <div className="text-sm uppercase tracking-[0.25em] text-purple-400">
+            Stage Preise
+          </div>
+          <h2 className="mt-2 text-2xl font-semibold">Kistenpreise pro Stage</h2>
+          <p className="mt-2 text-sm text-zinc-400">
+            Diese Preise werden automatisch für Dealer übernommen, je nach Stage.
+          </p>
+        </div>
+
+        <div className="grid gap-4">
+          <input
+            type="number"
+            min={0}
+            value={dealerStagePrices.stage1}
+            onChange={(e) =>
+              setDealerStagePrices((prev) => ({
+                ...prev,
+                stage1: Math.max(0, Number(e.target.value) || 0),
+              }))
+            }
+            placeholder="Stage 1 Preis"
+            className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 outline-none"
+          />
+
+          <input
+            type="number"
+            min={0}
+            value={dealerStagePrices.stage2}
+            onChange={(e) =>
+              setDealerStagePrices((prev) => ({
+                ...prev,
+                stage2: Math.max(0, Number(e.target.value) || 0),
+              }))
+            }
+            placeholder="Stage 2 Preis"
+            className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 outline-none"
+          />
+
+          <input
+            type="number"
+            min={0}
+            value={dealerStagePrices.stage3}
+            onChange={(e) =>
+              setDealerStagePrices((prev) => ({
+                ...prev,
+                stage3: Math.max(0, Number(e.target.value) || 0),
+              }))
+            }
+            placeholder="Stage 3 Preis"
+            className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 outline-none"
+          />
+
+          <input
+            type="number"
+            min={0}
+            value={dealerStagePrices.stage4}
+            onChange={(e) =>
+              setDealerStagePrices((prev) => ({
+                ...prev,
+                stage4: Math.max(0, Number(e.target.value) || 0),
+              }))
+            }
+            placeholder="Stage 4 Preis"
+            className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 outline-none"
+          />
+        </div>
+
+        <div className="mt-6 flex justify-end">
+          <button
+            onClick={() => setShowStagePriceModal(false)}
+            className="rounded-xl border border-white/10 bg-white/5 px-5 py-3 transition hover:bg-white/10"
+          >
+            Schließen
           </button>
         </div>
       </div>
